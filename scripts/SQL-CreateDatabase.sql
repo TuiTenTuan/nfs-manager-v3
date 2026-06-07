@@ -1,0 +1,3 @@
+CREATE ROLE nfsmanager WITH LOGIN PASSWORD '4d36rgHUvo69Q4sBBXwsW7Hw1aVkfBVV';
+
+CREATE DATABASE nfsmanager_v3 OWNER nfsmanager;
