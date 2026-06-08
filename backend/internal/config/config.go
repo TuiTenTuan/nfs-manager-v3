@@ -79,7 +79,7 @@ func Load() (*Config, error) {
 
 	return &Config{
 		AppEnv:             getEnv("APP_ENV", "dev"),
-		HTTPPort:           getEnv("HTTP_PORT", "8080"),
+		HTTPPort:           getEnv("API_PORT", "8080"),
 		Database:           db,
 		JWTAccessSecret:    getEnv("JWT_ACCESS_SECRET", "dev-access-secret-change-in-production-32"),
 		JWTRefreshSecret:   getEnv("JWT_REFRESH_SECRET", "dev-refresh-secret-change-in-production-32"),

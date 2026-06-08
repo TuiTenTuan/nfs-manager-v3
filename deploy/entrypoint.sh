@@ -56,10 +56,10 @@ log "NFS daemons ready"
 log "Running database migrations"
 /usr/local/bin/nfs-manager-migrate up
 
-log "Starting API on :${HTTP_PORT:-8081}"
+log "Starting API on :${API_PORT:-8081}"
 /usr/local/bin/nfs-manager-api &
 API_PID=$!
 
-log "Starting frontend on :${PORT:-3001}"
+log "Starting frontend on :${APP_PORT:-3001}"
 cd /app/frontend
 node server.js

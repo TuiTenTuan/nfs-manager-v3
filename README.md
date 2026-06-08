@@ -218,7 +218,7 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `HTTP_PORT` | API listen port | `8080` |
+| `API_PORT` | API listen port | `8080` |
 | `DATABASE_*` | PostgreSQL connection | see `.env.example` |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing keys | **change in production** |
 | `NFS_PROVIDER` | `linux` or `mock` | `linux` on Linux, `mock` elsewhere |
