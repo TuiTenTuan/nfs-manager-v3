@@ -372,3 +372,155 @@ export const mountFieldInfo: Record<string, ShareFieldInfo> = {
       "Additional client mount options appended to the generated string. Enter comma-separated tokens not covered by the form.",
   },
 };
+
+type FormBasic = typeof defaultBasic;
+type FormAdvanced = typeof defaultAdvanced;
+
+function normalizePath(path: string): string {
+  const cleaned = path.replace(/\\/g, "/").replace(/\/+/g, "/");
+  if (cleaned.length > 1 && cleaned.endsWith("/")) return cleaned.slice(0, -1);
+  return cleaned || "/";
+}
+
+export function renderExportLine(
+  path: string,
+  basic: Record<string, unknown>,
+  advanced: Record<string, unknown>,
+  configMode: "form" | "raw" = "form",
+  rawExport?: string | null
+): string {
+  if (configMode === "raw" && rawExport?.trim()) {
+    return rawExport.trim();
+  }
+  const opts: string[] = [];
+  if (basic.read_only) opts.push("ro");
+  else opts.push("rw");
+  if (basic.root_squash) opts.push("root_squash");
+  else opts.push("no_root_squash");
+  if (basic.sync === false) opts.push("async");
+  else opts.push("sync");
+  const security = String(basic.security || "sys").trim();
+  if (security && security !== "sys") opts.push(`sec=${security}`);
+  if (advanced.all_squash) opts.push("all_squash");
+  if (advanced.subtree_check) opts.push("subtree_check");
+  if (advanced.no_subtree_check) opts.push("no_subtree_check");
+  if (advanced.secure_ports) opts.push("secure");
+  if (advanced.insecure) opts.push("insecure");
+  if (advanced.wdelay) opts.push("wdelay");
+  if (advanced.no_wdelay) opts.push("no_wdelay");
+  if (advanced.crossmnt) opts.push("crossmnt");
+  if (advanced.nohide) opts.push("nohide");
+  if (advanced.mountpoint) {
+    const mp = String(advanced.mountpoint_path || "").trim();
+    opts.push(mp ? `mountpoint=${mp}` : "mountpoint");
+  }
+  if (advanced.fsid) opts.push(`fsid=${advanced.fsid}`);
+  if (advanced.refer) opts.push(`refer=${advanced.refer}`);
+  if (advanced.replicas) opts.push(`replicas=${advanced.replicas}`);
+  if (advanced.insecure_locks) opts.push("insecure_locks");
+  if (advanced.no_auth_nlm) opts.push("no_auth_nlm");
+  if (advanced.public) opts.push("public");
+  if (advanced.webnfs) opts.push("webnfs");
+  const xprtsec = String(advanced.xprtsec || "").trim();
+  if (xprtsec) opts.push(`xprtsec=${xprtsec}`);
+  const anonUid = Number(advanced.anon_uid) || 0;
+  const anonGid = Number(advanced.anon_gid) || 0;
+  if (anonUid > 0) opts.push(`anonuid=${anonUid}`);
+  if (anonGid > 0) opts.push(`anongid=${anonGid}`);
+  const extra = String(advanced.extra_options || "").trim();
+  if (extra) opts.push(...extra.split(/\s+/));
+  const clients = Array.isArray(basic.clients) && basic.clients.length > 0
+    ? (basic.clients as string[]).join(",")
+    : "*";
+  const exportPath = normalizePath(path || String(basic.path || ""));
+  return `${exportPath} ${clients}(${opts.join(",")})`;
+}
+
+function splitExportOptions(raw: string): string[] {
+  const opts: string[] = [];
+  let buf = "";
+  let depth = 0;
+  for (const ch of raw) {
+    if (ch === "(") depth++;
+    if (ch === ")") depth--;
+    if (ch === "," && depth === 0) {
+      if (buf.trim()) opts.push(buf.trim());
+      buf = "";
+      continue;
+    }
+    buf += ch;
+  }
+  if (buf.trim()) opts.push(buf.trim());
+  return opts;
+}
+
+export function parseExportLine(line: string): {
+  path: string;
+  basic: Partial<FormBasic>;
+  advanced: Partial<FormAdvanced>;
+  error?: string;
+} {
+  const trimmed = line.trim();
+  if (!trimmed) return { path: "", basic: {}, advanced: {}, error: "Empty export line" };
+  const match = trimmed.match(/^\s*(\S+)\s+(\S+)\((.*)\)\s*$/);
+  if (!match) return { path: "", basic: {}, advanced: {}, error: "Invalid export line syntax" };
+
+  const path = normalizePath(match[1]);
+  const clients = match[2].split(",").map((c) => c.trim()).filter(Boolean);
+  const basic: Partial<FormBasic> = {
+    path,
+    clients: clients.length > 0 ? clients : ["*"],
+    read_only: false,
+    root_squash: true,
+    sync: true,
+    security: "sys",
+  };
+  const advanced: Partial<FormAdvanced> = {
+    secure_ports: true,
+    all_squash: false,
+  };
+  const extras: string[] = [];
+
+  for (const opt of splitExportOptions(match[3])) {
+    const eq = opt.indexOf("=");
+    const key = (eq >= 0 ? opt.slice(0, eq) : opt).trim();
+    const val = eq >= 0 ? opt.slice(eq + 1).trim() : "";
+    switch (key) {
+      case "ro": basic.read_only = true; break;
+      case "rw": basic.read_only = false; break;
+      case "root_squash": basic.root_squash = true; advanced.all_squash = false; break;
+      case "no_root_squash": basic.root_squash = false; break;
+      case "all_squash": advanced.all_squash = true; basic.root_squash = true; break;
+      case "sync": basic.sync = true; break;
+      case "async": basic.sync = false; break;
+      case "subtree_check": advanced.subtree_check = true; advanced.no_subtree_check = false; break;
+      case "no_subtree_check": advanced.no_subtree_check = true; advanced.subtree_check = false; break;
+      case "secure": advanced.secure_ports = true; advanced.insecure = false; break;
+      case "insecure": advanced.insecure = true; advanced.secure_ports = false; break;
+      case "wdelay": advanced.wdelay = true; advanced.no_wdelay = false; break;
+      case "no_wdelay": advanced.no_wdelay = true; advanced.wdelay = false; break;
+      case "crossmnt": advanced.crossmnt = true; break;
+      case "nohide": advanced.nohide = true; break;
+      case "mountpoint":
+        advanced.mountpoint = true;
+        if (val) advanced.mountpoint_path = val;
+        break;
+      case "insecure_locks": advanced.insecure_locks = true; break;
+      case "no_auth_nlm": advanced.no_auth_nlm = true; break;
+      case "public": advanced.public = true; break;
+      case "webnfs": advanced.webnfs = true; break;
+      case "anonuid": advanced.anon_uid = Number(val) || 0; break;
+      case "anongid": advanced.anon_gid = Number(val) || 0; break;
+      case "fsid": advanced.fsid = val; break;
+      case "refer": advanced.refer = val; break;
+      case "replicas": advanced.replicas = val; break;
+      case "xprtsec": advanced.xprtsec = val; break;
+      case "sec": basic.security = val; break;
+      default:
+        if (key.startsWith("sec=")) basic.security = key.slice(4);
+        else extras.push(opt);
+    }
+  }
+  if (extras.length > 0) advanced.extra_options = extras.join(" ");
+  return { path, basic, advanced };
+}

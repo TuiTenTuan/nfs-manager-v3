@@ -147,13 +147,21 @@ func (s *Service) ExportLineForShare(sh Share) string {
 	return nfs.RenderFormLine(path, basic, adv)
 }
 
+func (s *Service) ValidateSharePayload(sh Share) []nfs.ValidationError {
+	line := s.ExportLineForShare(sh)
+	return s.provider.ValidateText(line)
+}
+
 func (s *Service) ValidateShare(ctx context.Context, id int) ([]nfs.ValidationError, error) {
 	sh, _ := s.Get(ctx, id)
 	if sh == nil {
 		return nil, errors.New("not found")
 	}
-	line := s.ExportLineForShare(*sh)
-	return s.provider.ValidateText(line), nil
+	return s.ValidateSharePayload(*sh), nil
+}
+
+func (s *Service) PreviewSharePayload(sh Share) string {
+	return s.ExportLineForShare(sh)
 }
 
 func (s *Service) ApplyShare(ctx context.Context, id int, userID int, username string) error {
@@ -175,6 +183,8 @@ func (s *Service) RegisterRoutes(r gin.IRouter) {
 	r.GET("/:id", s.handleGet)
 	r.POST("", middleware.RequireAdmin(), s.handleCreate)
 	r.POST("/sync-from-os", middleware.RequireAdmin(), s.handleSyncFromOS)
+	r.POST("/validate", middleware.RequireAdmin(), s.handleValidateDraft)
+	r.POST("/preview", s.handlePreviewDraft)
 	r.PUT("/:id", middleware.RequireAdmin(), s.handleUpdate)
 	r.DELETE("/:id", middleware.RequireAdmin(), s.handleDelete)
 	r.POST("/:id/validate", middleware.RequireAdmin(), s.handleValidate)
@@ -218,7 +228,14 @@ func (s *Service) handleCreate(c *gin.Context) {
 		return
 	}
 	uid := middleware.GetUserID(c)
-	_ = s.audit.Log(c.Request.Context(), "share.create", "share", &created.ID, &uid, middleware.GetUsername(c), nil)
+	username := middleware.GetUsername(c)
+	_ = s.audit.Log(c.Request.Context(), "share.create", "share", &created.ID, &uid, username, nil)
+	if created.Enabled {
+		if err := s.exports.RebuildAndApply(c.Request.Context(), uid, username, "share.create_apply", &created.ID); err != nil {
+			c.JSON(http.StatusCreated, gin.H{"share": created, "apply_warning": err.Error()})
+			return
+		}
+	}
 	c.JSON(http.StatusCreated, created)
 }
 
@@ -235,18 +252,58 @@ func (s *Service) handleUpdate(c *gin.Context) {
 		return
 	}
 	uid := middleware.GetUserID(c)
-	_ = s.audit.Log(c.Request.Context(), "share.update", "share", &id, &uid, middleware.GetUsername(c), nil)
+	username := middleware.GetUsername(c)
+	_ = s.audit.Log(c.Request.Context(), "share.update", "share", &id, &uid, username, nil)
+	if err := s.exports.RebuildAndApply(c.Request.Context(), uid, username, "share.update_apply", &id); err != nil {
+		c.JSON(http.StatusOK, gin.H{"share": updated, "apply_warning": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, updated)
 }
 
 func (s *Service) handleDelete(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	_ = s.Delete(c.Request.Context(), id)
+	if err := s.Delete(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	uid := middleware.GetUserID(c)
+	username := middleware.GetUsername(c)
+	_ = s.audit.Log(c.Request.Context(), "share.delete", "share", &id, &uid, username, nil)
+	if err := s.exports.RebuildAndApply(c.Request.Context(), uid, username, "share.delete_apply", &id); err != nil {
+		c.JSON(http.StatusOK, gin.H{"ok": true, "apply_warning": err.Error()})
+		return
+	}
 	c.Status(http.StatusNoContent)
+}
+
+func (s *Service) handleValidateDraft(c *gin.Context) {
+	var sh Share
+	if err := c.ShouldBindJSON(&sh); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	errs := s.ValidateSharePayload(sh)
+	c.JSON(http.StatusOK, gin.H{"valid": len(errs) == 0, "errors": errs})
+}
+
+func (s *Service) handlePreviewDraft(c *gin.Context) {
+	var sh Share
+	if err := c.ShouldBindJSON(&sh); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"preview": s.PreviewSharePayload(sh)})
 }
 
 func (s *Service) handleValidate(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	var sh Share
+	if err := c.ShouldBindJSON(&sh); err == nil && sh.Name != "" {
+		errs := s.ValidateSharePayload(sh)
+		c.JSON(http.StatusOK, gin.H{"valid": len(errs) == 0, "errors": errs})
+		return
+	}
 	errs, err := s.ValidateShare(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
@@ -257,6 +314,14 @@ func (s *Service) handleValidate(c *gin.Context) {
 
 func (s *Service) handleApply(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
+	var body Share
+	if err := c.ShouldBindJSON(&body); err == nil && (body.Name != "" || body.Path != "") {
+		body.ID = id
+		if _, err := s.Update(c.Request.Context(), id, body); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
 	if err := s.ApplyShare(c.Request.Context(), id, middleware.GetUserID(c), middleware.GetUsername(c)); err != nil {
 		if ve, ok := err.(*ValidateError); ok {
 			c.JSON(http.StatusBadRequest, gin.H{"valid": false, "errors": ve.Errors})

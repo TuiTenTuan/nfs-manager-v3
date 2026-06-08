@@ -17,6 +17,13 @@ import { FormField } from "@/components/forms/form-field";
 import { FormActions } from "@/components/forms/form-actions";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Group = { id: number; name: string; description: string; share_count: number };
 
@@ -27,6 +34,10 @@ function formatShareCount(count: number): string {
 export default function GroupsPage() {
   const confirm = useConfirm();
   const [groups, setGroups] = useState<Group[] | null>(null);
+  const [editing, setEditing] = useState<Group | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
   const admin = isAdmin();
 
   const {
@@ -45,6 +56,35 @@ export default function GroupsPage() {
       .catch(() => setGroups([]));
 
   useEffect(() => { load(); }, []);
+
+  function openEdit(group: Group) {
+    setEditing(group);
+    setEditName(group.name);
+    setEditDescription(group.description || "");
+  }
+
+  async function saveEdit() {
+    if (!editing) return;
+    const parsed = groupSchema.safeParse({ name: editName, description: editDescription });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message || "Invalid group");
+      return;
+    }
+    setEditSaving(true);
+    try {
+      await api(`/groups/${editing.id}`, {
+        method: "PUT",
+        body: JSON.stringify(parsed.data),
+      });
+      toast.success("Group updated");
+      setEditing(null);
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Update failed");
+    } finally {
+      setEditSaving(false);
+    }
+  }
 
   async function onCreate(data: GroupForm) {
     try {
@@ -104,7 +144,10 @@ export default function GroupsPage() {
                 <p className="text-sm text-muted-foreground">{g.description || "No description"}</p>
               </div>
               {admin && (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="sm" onClick={() => openEdit(g)}>
+                    Edit
+                  </Button>
                   <Button
                     variant="outline"
                     size="sm"
@@ -146,6 +189,30 @@ export default function GroupsPage() {
           ))}
         </div>
       )}
+
+      <Dialog open={!!editing} onOpenChange={(open) => !open && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit group</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <FormField label="Name" required>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} maxLength={NAME_MAX_LENGTH} />
+            </FormField>
+            <FormField label="Description">
+              <Input value={editDescription} onChange={(e) => setEditDescription(e.target.value)} />
+            </FormField>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} type="button">
+              Cancel
+            </Button>
+            <Button onClick={saveEdit} disabled={editSaving} type="button">
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

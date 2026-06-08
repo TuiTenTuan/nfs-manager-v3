@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "@/lib/toast";
 import { Moon, Sun } from "@phosphor-icons/react";
 import { api, getHealth, type Health } from "@/lib/api";
+import { getApiBase } from "@/lib/runtime-config";
 import { useTheme } from "@/lib/theme";
 import { passwordChangeSchema, type PasswordChangeForm } from "@/lib/schemas";
 import { PASSWORD_MIN_LENGTH } from "@/lib/validation";
@@ -87,7 +88,7 @@ export default function SettingsPage() {
               <Skeleton className="h-5 w-32" />
             )}
             <p className="text-muted-foreground font-mono text-xs break-all">
-              {process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v3"}
+              {typeof window !== "undefined" ? getApiBase() : process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v3"}
             </p>
             <FormField
               label="NFS server host"

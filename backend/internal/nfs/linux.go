@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -32,7 +31,7 @@ func (l *LinuxProvider) ValidateText(text string) []ValidationError {
 }
 
 func (l *LinuxProvider) Apply(content string) error {
-	dir := filepath.Dir(l.managedPath)
+	dir := DirExportPath(l.managedPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("create exports dir: %w", err)
 	}

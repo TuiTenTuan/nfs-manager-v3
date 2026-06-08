@@ -104,3 +104,18 @@ export type ShareBasicForm = z.infer<typeof shareBasicSchema>;
 export type UserCreateForm = z.infer<typeof userCreateSchema>;
 export type GroupForm = z.infer<typeof groupSchema>;
 export type PasswordChangeForm = z.infer<typeof passwordChangeSchema>;
+
+export const adminPasswordResetSchema = z
+  .object({
+    new_password: z
+      .string()
+      .min(1, requiredMessage("New password"))
+      .min(PASSWORD_MIN_LENGTH, minLengthMessage("New password", PASSWORD_MIN_LENGTH)),
+    confirm_password: z.string().min(1, "Please confirm the new password"),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  });
+
+export type AdminPasswordResetForm = z.infer<typeof adminPasswordResetSchema>;

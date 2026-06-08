@@ -36,6 +36,7 @@ type Config struct {
 	JWTRefreshTTL      time.Duration
 	NFSProvider        string
 	NFSServerHost      string
+	NFSPort            string
 	NFSRootAllowlist   []string
 	ManagedExportsPath string
 	CORSOrigin         string
@@ -87,6 +88,7 @@ func Load() (*Config, error) {
 		JWTRefreshTTL:      refreshTTL,
 		NFSProvider:        provider,
 		NFSServerHost:      nfsServerHost,
+		NFSPort:            getEnv("NFS_PORT", "2049"),
 		NFSRootAllowlist:   allowlist,
 		ManagedExportsPath: getEnv("MANAGED_EXPORTS_PATH", "/etc/exports.d/nfs-manager.exports"),
 		CORSOrigin:         getEnv("CORS_ORIGIN", "http://localhost:3000"),

@@ -3,7 +3,6 @@ package nfs
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 )
 
@@ -104,7 +103,7 @@ func RenderMountConfig(server, exportPath string, opts MountClientOptions) (Moun
 	}
 
 	optsStr := strings.Join(parts, ",")
-	remote := server + ":" + filepath.Clean(exportPath)
+	remote := server + ":" + CleanExportPath(exportPath)
 	fstabType := "nfs"
 	if strings.HasPrefix(strings.TrimSpace(opts.Version), "4") {
 		fstabType = "nfs4"

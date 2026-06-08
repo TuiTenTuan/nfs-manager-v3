@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"path/filepath"
 	"strings"
 
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/nfs"
@@ -52,7 +51,7 @@ func (s *Service) SyncFromOS(ctx context.Context, mode SyncMode) (*SyncResult, e
 	byPath := make(map[string]Share, len(dbShares))
 	names := make(map[string]bool, len(dbShares))
 	for _, sh := range dbShares {
-		byPath[filepath.Clean(sh.Path)] = sh
+		byPath[nfs.CleanExportPath(sh.Path)] = sh
 		names[sh.Name] = true
 	}
 
@@ -118,7 +117,7 @@ func (s *Service) SyncFromOS(ctx context.Context, mode SyncMode) (*SyncResult, e
 
 	if mode == ManualReconcile {
 		for _, sh := range dbShares {
-			if _, inOS := osPaths[filepath.Clean(sh.Path)]; !inOS {
+			if _, inOS := osPaths[nfs.CleanExportPath(sh.Path)]; !inOS {
 				if err := s.Delete(ctx, sh.ID); err != nil {
 					return result, fmt.Errorf("delete share %s: %w", sh.Path, err)
 				}
@@ -135,7 +134,7 @@ func (s *Service) SyncToOSOnStartup(ctx context.Context) error {
 }
 
 func deriveShareName(path string, taken map[string]bool) string {
-	base := filepath.Base(filepath.Clean(path))
+	base := nfs.BaseExportPath(path)
 	if base == "" || base == "." || base == "/" {
 		base = "share"
 	}

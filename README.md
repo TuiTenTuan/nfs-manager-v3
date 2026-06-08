@@ -163,9 +163,11 @@ make docker-up
 |---------|-----|
 | UI | http://localhost:3001/login |
 | API health | http://localhost:8081/api/v3/health |
-| NFS | `localhost:2049` |
+| NFS | `localhost:${NFS_PORT:-2049}` |
 
 On first startup, check `docker compose -f deploy/docker-compose.yml logs app` for the one-time `admin` password.
+
+The Docker image does **not** bake `NEXT_PUBLIC_API_BASE` at build time. Set `NEXT_PUBLIC_API_BASE` in `deploy/.env` (or compose environment); `entrypoint.sh` writes `/public/env.js` before starting Next.js.
 
 Stop the stack:
 
@@ -223,6 +225,7 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing keys | **change in production** |
 | `NFS_PROVIDER` | `linux` or `mock` | `linux` on Linux, `mock` elsewhere |
 | `NFS_SERVER_HOST` | Hostname shown in health/mount hints | system hostname |
+| `NFS_PORT` | NFS server port (`rpc.nfsd`) | `2049` |
 | `NFS_ROOT_ALLOWLIST` | Comma-separated allowed export path roots | `/srv,/data,/export,/mnt` |
 | `MANAGED_EXPORTS_PATH` | Managed exports file on Linux | `/etc/exports.d/nfs-manager.exports` |
 | `CORS_ORIGIN` | Allowed frontend origin | `http://localhost:3000` |
@@ -231,8 +234,9 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 
 | Variable | Description |
 |----------|-------------|
-| `NEXT_PUBLIC_API_BASE` | API base URL (e.g. `http://localhost:8080/api/v3`) |
+| `NEXT_PUBLIC_API_BASE` | API base URL for local dev (Docker writes `public/env.js` at runtime) |
 | `NEXT_PUBLIC_APP_NAME` | Display name in the UI |
+| `APP_PORT` | Next.js listen port (Docker / production) | `3001` |
 
 ---
 

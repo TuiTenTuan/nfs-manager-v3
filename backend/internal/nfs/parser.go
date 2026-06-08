@@ -2,7 +2,6 @@ package nfs
 
 import (
 	"fmt"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -26,7 +25,7 @@ func ParseExportLines(text string) []ExportLine {
 			continue
 		}
 		out = append(out, ExportLine{
-			Path:    filepath.Clean(m[1]),
+			Path:    CleanExportPath(m[1]),
 			RawLine: trimmed,
 		})
 	}
@@ -34,7 +33,7 @@ func ParseExportLines(text string) []ExportLine {
 }
 
 func IsPathAllowlisted(path string, allowlist []string) bool {
-	return pathAllowed(filepath.Clean(path), allowlist)
+	return pathAllowed(CleanExportPath(path), allowlist)
 }
 
 func ValidatePathsInText(text string, allowlist []string) []ValidationError {
@@ -54,8 +53,8 @@ func ValidatePathsInText(text string, allowlist []string) []ValidationError {
 			errs = append(errs, ValidationError{Line: i + 1, Field: "path", Message: "path must not contain .."})
 			continue
 		}
-		clean := filepath.Clean(exportPath)
-		if !strings.HasPrefix(clean, "/") {
+		clean := CleanExportPath(exportPath)
+		if !IsAbsoluteExportPath(clean) {
 			errs = append(errs, ValidationError{Line: i + 1, Field: "path", Message: "path must be absolute"})
 			continue
 		}
@@ -71,7 +70,7 @@ func pathAllowed(path string, allowlist []string) bool {
 		if root == "" {
 			continue
 		}
-		root = filepath.Clean(root)
+		root = CleanExportPath(root)
 		if path == root || strings.HasPrefix(path, root+"/") {
 			return true
 		}
@@ -172,7 +171,7 @@ func RenderFormLine(path string, basic ShareForm, adv ShareAdvanced) string {
 	if len(basic.Clients) > 0 {
 		clients = strings.Join(basic.Clients, ",")
 	}
-	return fmt.Sprintf("%s %s(%s)", filepath.Clean(path), clients, strings.Join(opts, ","))
+	return fmt.Sprintf("%s %s(%s)", CleanExportPath(path), clients, strings.Join(opts, ","))
 }
 
 func ValidateExportSyntax(text string) []ValidationError {

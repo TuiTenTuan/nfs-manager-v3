@@ -4,9 +4,7 @@ WORKDIR /build/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-ARG NEXT_PUBLIC_API_BASE=http://localhost:8081/api/v3
 ARG NEXT_PUBLIC_APP_NAME=NFS Manager v3
-ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 ENV NEXT_PUBLIC_APP_NAME=$NEXT_PUBLIC_APP_NAME
 RUN npm run build
 
@@ -39,9 +37,9 @@ RUN chmod +x /entrypoint.sh && \
 ENV NFS_PROVIDER=linux \
     MANAGED_EXPORTS_PATH=/etc/exports.d/nfs-manager.exports \
     NFS_ROOT_ALLOWLIST=/srv,/data,/export,/mnt \
+    NFS_PORT=2049 \
     API_PORT=8081 \
     APP_PORT=3001 \
-    HOSTNAME=0.0.0.0 \
     APP_ENV=production
 
 WORKDIR /

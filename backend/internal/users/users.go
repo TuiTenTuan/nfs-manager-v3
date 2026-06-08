@@ -345,10 +345,22 @@ func (s *Service) handleSetStatus(c *gin.Context) {
 func (s *Service) handleChangePassword(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	role, _ := c.Get("role")
-	if role != "admin" && middleware.GetUserID(c) != id {
+	actorID := middleware.GetUserID(c)
+	if role != "admin" && actorID != id {
 		c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
 		return
 	}
+
+	target, err := s.Get(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if target == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+
 	var req struct {
 		NewPassword string `json:"new_password" binding:"required,min=8"`
 	}

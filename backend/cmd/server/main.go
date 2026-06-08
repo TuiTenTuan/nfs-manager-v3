@@ -13,7 +13,9 @@ import (
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/audit"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/auth"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/config"
+	"github.com/nfs-manager/nfs-manager-v3/backend/internal/configuration"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/db"
+	"github.com/nfs-manager/nfs-manager-v3/backend/internal/filesystem"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/exports"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/groups"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/monitor"
@@ -73,6 +75,8 @@ func main() {
 	groupSvc := groups.New(pool, auditSvc)
 	monSvc := monitor.New(pool, provider, shareSvc)
 	reportSvc := reports.New(pool)
+	fsSvc := filesystem.New(cfg.NFSRootAllowlist)
+	configSvc := configuration.New(pool, auditSvc, groupSvc, shareSvc, tmplSvc, exportSvc)
 
 	go func() {
 		ticker := time.NewTicker(6 * time.Hour)
@@ -86,6 +90,7 @@ func main() {
 		Auth: authSvc, Users: userSvc, Groups: groupSvc,
 		Shares: shareSvc, Exports: exportSvc, Templates: tmplSvc,
 		Monitor: monSvc, Reports: reportSvc, Audit: auditSvc,
+		Filesystem: fsSvc, Configuration: configSvc,
 	})
 
 	addr := ":" + cfg.HTTPPort

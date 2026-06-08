@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "@/lib/toast";
 import { ArrowRight, Clipboard, ClipboardText } from "@phosphor-icons/react";
 import { api, getHealth, isAdmin } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import { shareAdvancedSchema, shareBasicSchema } from "@/lib/schemas";
-import { NAME_MAX_LENGTH, SHARE_PATH_MAX_LENGTH } from "@/lib/validation";
+import { NAME_MAX_LENGTH } from "@/lib/validation";
 import {
   defaultAdvanced,
   defaultBasic,
@@ -23,8 +23,11 @@ import {
   setSyncMode,
   setWriteDelay,
   mountFieldInfo,
+  parseExportLine,
+  renderExportLine,
   shareFieldInfo,
 } from "@/lib/share-form";
+import { FolderBrowser } from "@/components/shares/folder-browser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { FormField } from "@/components/forms/form-field";
+import { PageHeader } from "@/components/layout/page-header";
 
 export type ShareData = {
   id?: number;
@@ -57,6 +61,17 @@ export type ShareData = {
 
 type Group = { id: number; name: string };
 
+function sharePageTitle(shareId: string | undefined, name: string): string {
+  const trimmed = name.trim();
+  if (!shareId || shareId === "new") {
+    return trimmed || "New share";
+  }
+  if (trimmed) {
+    return `${trimmed} (#${shareId})`;
+  }
+  return `Share #${shareId}`;
+}
+
 const emptyShare = (): ShareData => ({
   name: "",
   path: "/srv/nfs/data",
@@ -66,13 +81,7 @@ const emptyShare = (): ShareData => ({
   enabled: true,
 });
 
-export function ShareEditor({
-  shareId,
-  header,
-}: {
-  shareId?: string;
-  header?: React.ReactNode;
-}) {
+export function ShareEditor({ shareId }: { shareId?: string }) {
   const confirm = useConfirm();
   const [tab, setTab] = useState("basic");
   const [data, setData] = useState<ShareData | null>(() =>
@@ -82,8 +91,19 @@ export function ShareEditor({
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<{ line?: number; message: string }[]>([]);
   const [preview, setPreview] = useState("");
+  const [rawParseError, setRawParseError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const admin = isAdmin();
+
+  const livePreview = useMemo(() => {
+    if (!data) return "";
+    return renderExportLine(data.path, data.basic_json, data.advanced_json, data.config_mode, data.raw_export);
+  }, [data]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setPreview(livePreview), 150);
+    return () => window.clearTimeout(timer);
+  }, [livePreview]);
 
   const load = useCallback(async () => {
     if (!shareId || shareId === "new") {
@@ -135,14 +155,54 @@ export function ShareEditor({
     );
   }
 
+  const syncRawFromForm = (next: ShareData): ShareData => ({
+    ...next,
+    config_mode: tab === "raw" ? next.config_mode : "form",
+    raw_export: renderExportLine(next.path, next.basic_json, next.advanced_json, "form"),
+  });
+
   const setBasic = (patch: Partial<typeof defaultBasic>) => {
     setDirty(true);
-    setData({ ...data, basic_json: { ...data.basic_json, ...patch } });
+    const next = syncRawFromForm({
+      ...data,
+      basic_json: { ...data.basic_json, ...patch },
+      config_mode: tab === "raw" ? data.config_mode : "form",
+    });
+    if (patch.path !== undefined) next.path = String(patch.path);
+    setData(next);
+    setRawParseError("");
   };
 
   const setAdvanced = (patch: Partial<typeof defaultAdvanced>) => {
     setDirty(true);
-    setData({ ...data, advanced_json: { ...data.advanced_json, ...patch } });
+    setData(
+      syncRawFromForm({
+        ...data,
+        advanced_json: { ...data.advanced_json, ...patch },
+        config_mode: tab === "raw" ? data.config_mode : "form",
+      })
+    );
+    setRawParseError("");
+  };
+
+  const applyRawLine = (raw: string) => {
+    const parsed = parseExportLine(raw);
+    if (parsed.error) {
+      setRawParseError(parsed.error);
+      setDirty(true);
+      setData({ ...data, raw_export: raw, config_mode: "raw" });
+      return;
+    }
+    setRawParseError("");
+    setDirty(true);
+    setData({
+      ...data,
+      path: parsed.path,
+      raw_export: raw,
+      config_mode: "raw",
+      basic_json: { ...defaultBasic, ...data.basic_json, ...parsed.basic },
+      advanced_json: { ...defaultAdvanced, ...data.advanced_json, ...parsed.advanced },
+    });
   };
 
   function validateClientFields(): boolean {
@@ -228,12 +288,28 @@ export function ShareEditor({
     }
   }
 
+  function buildPayload(): ShareData {
+    const payload: ShareData = { ...data!, config_mode: tab === "raw" ? "raw" : "form" };
+    if (tab !== "raw") {
+      payload.raw_export = renderExportLine(payload.path, payload.basic_json, payload.advanced_json, "form");
+    }
+    return payload;
+  }
+
   async function validate() {
-    if (!shareId || shareId === "new") return;
+    if (!validateClientFields()) {
+      toast.error("Fix validation errors before validating export");
+      return;
+    }
     try {
+      const payload = buildPayload();
+      const path =
+        !shareId || shareId === "new"
+          ? "/shares/validate"
+          : `/shares/${shareId}/validate`;
       const res = await api<{ valid: boolean; errors: { line?: number; message: string }[] }>(
-        `/shares/${shareId}/validate`,
-        { method: "POST", body: "{}" }
+        path,
+        { method: "POST", body: JSON.stringify(payload) }
       );
       setErrors(res.errors || []);
       if (res.valid) toast.success("Validation passed");
@@ -244,45 +320,52 @@ export function ShareEditor({
   }
 
   async function apply() {
-    if (!shareId || shareId === "new") return;
+    if (!shareId || shareId === "new") {
+      toast.error("Save the share before applying to NFS exports");
+      return;
+    }
     const ok = await confirm({
       title: "Apply share to NFS exports?",
-      description: "Write this share to the live exports file and reload NFS. Clients may lose or regain access immediately.",
+      description: "Save current changes, rebuild managed exports, and reload NFS. Clients may lose or regain access immediately.",
       confirmLabel: "Apply",
       variant: "destructive",
     });
     if (!ok) return;
+    if (!validateClientFields()) {
+      toast.error("Fix validation errors before applying");
+      return;
+    }
     try {
-      await validate();
-      await api(`/shares/${shareId}/apply`, { method: "POST", body: "{}" });
+      const payload = buildPayload();
+      const validateRes = await api<{ valid: boolean; errors: { line?: number; message: string }[] }>(
+        `/shares/${shareId}/validate`,
+        { method: "POST", body: JSON.stringify(payload) }
+      );
+      setErrors(validateRes.errors || []);
+      if (!validateRes.valid) {
+        toast.error("Fix validation errors before applying");
+        return;
+      }
+      if (dirty) {
+        await api(`/shares/${shareId}`, { method: "PUT", body: JSON.stringify(payload) });
+      }
+      await api(`/shares/${shareId}/apply`, { method: "POST", body: JSON.stringify(payload) });
       toast.success("Applied to NFS exports");
       setDirty(false);
+      load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Apply failed");
     }
   }
 
-  async function fetchPreview() {
-    if (!shareId || shareId === "new") return;
-    try {
-      const res = await api<{ preview: string }>(`/shares/${shareId}/preview`, { method: "POST", body: "{}" });
-      setPreview(res.preview);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Preview failed");
-    }
-  }
-
-  async function generateRaw() {
-    if (!shareId || shareId === "new" || !data) return;
-    try {
-      const res = await api<{ raw_export: string }>(`/shares/${shareId}/generate-raw`, { method: "POST", body: "{}" });
-      setData({ ...data, raw_export: res.raw_export, config_mode: "raw" });
-      setTab("raw");
-      setDirty(true);
-      toast.success("Generated from form");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Generate failed");
-    }
+  function generateRawFromForm() {
+    if (!data) return;
+    const line = renderExportLine(data.path, data.basic_json, data.advanced_json, "form");
+    setData({ ...data, raw_export: line, config_mode: "raw" });
+    setTab("raw");
+    setDirty(true);
+    setRawParseError("");
+    toast.success("Generated from form");
   }
 
   const clientsStr = Array.isArray(data.basic_json.clients)
@@ -292,14 +375,15 @@ export function ShareEditor({
   const mountpointEnabled = !!data.advanced_json.mountpoint;
 
   const actionBar = admin ? (
-    <div className="flex flex-wrap gap-2">
-      <Button onClick={save}>{shareId === "new" ? "Create" : "Save"}</Button>
-      <Button variant="outline" onClick={validate} disabled={!shareId || shareId === "new"}>
-        Validate
-      </Button>
-      <Button variant="outline" onClick={apply} disabled={!shareId || shareId === "new"}>
-        Apply
-      </Button>
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <Button onClick={save}>{shareId === "new" ? "Create" : "Save"}</Button>
+        <Button variant="outline" onClick={validate}>
+          Validate
+        </Button>
+        <Button variant="outline" onClick={apply} disabled={!shareId || shareId === "new"}>
+          Apply
+        </Button>
       {shareId && shareId !== "new" && (
         <Button variant="secondary" asChild>
           <Link href={`/shares/${shareId}/monitor`}>
@@ -308,6 +392,11 @@ export function ShareEditor({
           </Link>
         </Button>
       )}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        <span className="font-medium">Validate</span> checks the current export line without saving or applying.{" "}
+        <span className="font-medium">Apply</span> saves changes, rebuilds managed exports, and reloads NFS.
+      </p>
     </div>
   ) : (
     <Badge variant="secondary">Read-only (viewer role)</Badge>
@@ -315,7 +404,15 @@ export function ShareEditor({
 
   const pageToolbar = (
     <div className="sticky top-0 z-10 space-y-3 border-b border-border/60 bg-background pb-2">
-      {header}
+      <PageHeader
+        className="mb-0"
+        title={sharePageTitle(shareId, data.name)}
+        description={
+          !shareId || shareId === "new"
+            ? "Define a new NFS export"
+            : "Edit export configuration"
+        }
+      />
       {actionBar}
     </div>
   );
@@ -332,7 +429,17 @@ export function ShareEditor({
         {pageToolbar}
 
         <div className="space-y-4 pt-4">
-      <Tabs value={tab} onValueChange={setTab}>
+      <Tabs
+        value={tab}
+        onValueChange={(v) => {
+          setTab(v);
+          if (v === "raw" && data) {
+            setData(syncRawFromForm({ ...data, config_mode: "raw" }));
+          } else if (data?.raw_export && v !== "raw") {
+            applyRawLine(data.raw_export);
+          }
+        }}
+      >
         <TabsList>
           <TabsTrigger value="basic">Basic config</TabsTrigger>
           <TabsTrigger value="advanced">Advanced config</TabsTrigger>
@@ -356,19 +463,19 @@ export function ShareEditor({
                   />
                 </FormField>
 
-                <FormField label="Path" required info={shareFieldInfo.path} error={fieldErrors.path}>
-                  <Input
-                    value={data.path}
-                    onChange={(e) => {
-                      setDirty(true);
-                      setData({ ...data, path: e.target.value });
-                      setBasic({ path: e.target.value });
-                    }}
-                    disabled={!admin}
-                    className="font-mono"
-                    maxLength={SHARE_PATH_MAX_LENGTH}
-                    aria-invalid={!!fieldErrors.path}
-                  />
+                <FormField label="Path" required info={shareFieldInfo.path} error={fieldErrors.path} className="sm:col-span-2">
+                  {admin ? (
+                    <FolderBrowser
+                      value={data.path}
+                      onChange={(path) => {
+                        setDirty(true);
+                        setData(syncRawFromForm({ ...data, path, basic_json: { ...data.basic_json, path } }));
+                        setRawParseError("");
+                      }}
+                    />
+                  ) : (
+                    <div className="rounded-md border bg-muted/30 px-3 py-2 font-mono text-sm">{data.path}</div>
+                  )}
                 </FormField>
 
                 <FormField label="Enabled" info={shareFieldInfo.enabled}>
@@ -715,7 +822,7 @@ export function ShareEditor({
             <CardContent className="pt-5 space-y-3">
               {admin && (
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={generateRaw}>
+                  <Button type="button" variant="outline" size="sm" onClick={generateRawFromForm}>
                     From form
                   </Button>
                   <Button
@@ -746,15 +853,15 @@ export function ShareEditor({
                 </div>
               )}
               <Textarea
-                className="min-h-[200px]"
+                className="min-h-[200px] font-mono"
                 value={data.raw_export || ""}
-                onChange={(e) => {
-                  setDirty(true);
-                  setData({ ...data, raw_export: e.target.value, config_mode: "raw" });
-                }}
+                onChange={(e) => applyRawLine(e.target.value)}
                 disabled={!admin}
                 spellCheck={false}
               />
+              {rawParseError && (
+                <p className="text-sm text-destructive">{rawParseError}</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -763,9 +870,6 @@ export function ShareEditor({
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
           <CardTitle>Preview line</CardTitle>
-          <Button variant="outline" size="sm" onClick={fetchPreview}>
-            Refresh
-          </Button>
         </CardHeader>
         <CardContent>
           <pre className="font-mono text-sm bg-muted/50 p-3 rounded-md overflow-x-auto">
@@ -819,6 +923,7 @@ function parseMountSize(value: string): number {
 
 function MountConfigGenerator({ shareId, exportPath }: { shareId: string; exportPath: string }) {
   const [server, setServer] = useState("");
+  const [nfsPort, setNfsPort] = useState("2049");
   const [serverLoading, setServerLoading] = useState(true);
   const [serverError, setServerError] = useState("");
   const [mountPoint, setMountPoint] = useState("/mnt/nfs/data");
@@ -842,6 +947,7 @@ function MountConfigGenerator({ shareId, exportPath }: { shareId: string; export
         if (!active) return;
         const host = health.nfs_server?.trim() ?? "";
         setServer(host);
+        setNfsPort(health.nfs_port?.trim() || "2049");
         if (!host) {
           setServerError(
             "NFS server host is not configured. Set NFS_SERVER_HOST in the API server .env and restart."
@@ -881,7 +987,12 @@ function MountConfigGenerator({ shareId, exportPath }: { shareId: string; export
         nconnect: Number(nconnect) || 0,
         noatime,
         nfsvers: version,
-        extra_options: extraOptions,
+        extra_options: [
+          extraOptions,
+          nfsPort && nfsPort !== "2049" ? `port=${nfsPort}` : "",
+        ]
+          .filter(Boolean)
+          .join(","),
       };
       const res = await api<MountConfigResult>(`/shares/${shareId}/generate-mount`, {
         method: "POST",

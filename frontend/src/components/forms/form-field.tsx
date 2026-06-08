@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Info } from "@phosphor-icons/react";
 import { Label } from "@/components/ui/label";
 import type { ShareFieldInfo } from "@/lib/share-form";
@@ -19,10 +19,33 @@ type FormFieldProps = {
 
 function FieldInfo({ info }: { info: ShareFieldInfo }) {
   const [open, setOpen] = useState(false);
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: "hidden" });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const tipRef = useRef<HTMLSpanElement>(null);
+  const visible = open;
+
+  useLayoutEffect(() => {
+    if (!visible || !btnRef.current || !tipRef.current) return;
+    const btn = btnRef.current.getBoundingClientRect();
+    const tip = tipRef.current.getBoundingClientRect();
+    const margin = 8;
+    let left = btn.right + margin;
+    let top = btn.top;
+    if (left + tip.width > window.innerWidth - margin) {
+      left = btn.left - tip.width - margin;
+    }
+    if (left < margin) left = margin;
+    if (top + tip.height > window.innerHeight - margin) {
+      top = window.innerHeight - tip.height - margin;
+    }
+    if (top < margin) top = margin;
+    setStyle({ position: "fixed", left, top, visibility: "visible" });
+  }, [visible, info]);
 
   return (
     <span className="group/info relative inline-flex">
       <button
+        ref={btnRef}
         type="button"
         className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label="Field help"
@@ -36,12 +59,13 @@ function FieldInfo({ info }: { info: ShareFieldInfo }) {
         <Info className="h-3.5 w-3.5" weight="bold" />
       </button>
       <span
+        ref={tipRef}
         role="tooltip"
+        style={style}
         className={cn(
-          "pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 hidden w-80 max-w-[20rem] -translate-x-1/2 rounded-md border bg-popover px-3 py-2 text-xs font-normal leading-relaxed text-popover-foreground shadow-md",
+          "pointer-events-none z-[100] w-80 max-w-[min(20rem,calc(100vw-1rem))] rounded-md border bg-popover px-3 py-2 text-xs font-normal leading-relaxed text-popover-foreground shadow-md",
           "max-h-64 overflow-y-auto",
-          "group-hover/info:block group-focus-within/info:block",
-          open && "block"
+          !visible && "hidden"
         )}
       >
         <span className="block">{info.description}</span>

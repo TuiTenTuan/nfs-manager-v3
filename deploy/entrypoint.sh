@@ -19,10 +19,18 @@ shutdown() {
 }
 trap shutdown TERM INT
 
-log "Configuring NFS exports"
+NFS_PORT="${NFS_PORT:-2049}"
+API_PORT="${API_PORT:-8081}"
+APP_PORT="${APP_PORT:-3001}"
+API_BASE="${NEXT_PUBLIC_API_BASE:-http://localhost:${API_PORT}/api/v3}"
+
+log "Configuring NFS exports (port ${NFS_PORT})"
 mkdir -p /etc/exports.d /srv /data /export /mnt
+cat > /etc/nfs.conf <<EOF
+[nfsd]
+port=${NFS_PORT}
+EOF
 touch /etc/exports.d/nfs-manager.exports
-# Alpine nfs-utils does not support +include; symlink managed file as /etc/exports
 ln -sf /etc/exports.d/nfs-manager.exports /etc/exports
 
 log "Mounting rpc_pipefs"
@@ -47,7 +55,7 @@ MOUNTD_PID=$!
 sleep 1
 
 if ! exportfs -v >/dev/null 2>&1; then
-  log "ERROR: NFS failed to start Ã¢â‚¬â€ exportfs -v output:"
+  log "ERROR: NFS failed to start — exportfs -v output:"
   exportfs -v || true
   exit 1
 fi
@@ -56,10 +64,18 @@ log "NFS daemons ready"
 log "Running database migrations"
 /usr/local/bin/nfs-manager-migrate up
 
-log "Starting API on :${API_PORT:-8081}"
+log "Writing frontend runtime config"
+mkdir -p /app/frontend/public
+escaped_api_base="${API_BASE//\\/\\\\}"
+escaped_api_base="${escaped_api_base//\"/\\\"}"
+printf 'window.__RUNTIME_CONFIG__={apiBase:"%s"};\n' "$escaped_api_base" > /app/frontend/public/env.js
+
+log "Starting API on :${API_PORT}"
 /usr/local/bin/nfs-manager-api &
 API_PID=$!
 
-log "Starting frontend on :${APP_PORT:-3001}"
+log "Starting frontend on :${APP_PORT}"
 cd /app/frontend
-node server.js
+export PORT="${APP_PORT}"
+export HOSTNAME="0.0.0.0"
+exec node server.js

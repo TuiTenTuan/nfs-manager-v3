@@ -36,7 +36,6 @@ services:
       context: ..
       dockerfile: deploy/Dockerfile
       args:
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8081/api/v3}
         NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-NFS Manager v3}
     restart: unless-stopped
     depends_on:
@@ -56,16 +55,17 @@ services:
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
       NFS_PROVIDER: linux
       NFS_SERVER_HOST: ${NFS_SERVER_HOST:-localhost}
+      NFS_PORT: ${NFS_PORT:-2049}
       NFS_ROOT_ALLOWLIST: ${NFS_ROOT_ALLOWLIST:-/srv,/data,/export,/mnt}
       MANAGED_EXPORTS_PATH: /etc/exports.d/nfs-manager.exports
+      NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8081/api/v3}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in deploy/.env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in deploy/.env}
       APP_PORT: ${APP_PORT:-3001}
-      HOSTNAME: ${HOSTNAME:-0.0.0.0}
     ports:
-      - "3001:3001"
-      - "8081:8081"
-      - "2049:2049"
+      - "${APP_PORT:-3001}:${APP_PORT:-3001}"
+      - "${API_PORT:-8081}:${API_PORT:-8081}"
+      - "${NFS_PORT:-2049}:${NFS_PORT:-2049}"
     # privileged: kernel NFS (rpc.nfsd) needs mount namespaces and rpc_pipefs
     privileged: true
     volumes:

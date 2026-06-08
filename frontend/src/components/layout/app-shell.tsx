@@ -98,7 +98,7 @@ const nav = [
   { href: "/groups", label: "Groups", icon: Database },
   { href: "/templates", label: "Templates", icon: List },
   { href: "/reports", label: "Reports", icon: ChartBar },
-  { href: "/exports/raw", label: "Raw Exports", icon: Export, admin: true },
+  { href: "/configuration/export-import", label: "Export / Import", icon: Export, admin: true },
   { href: "/users", label: "Users", icon: Users, admin: true },
   { href: "/settings", label: "Settings", icon: Gear },
 ];

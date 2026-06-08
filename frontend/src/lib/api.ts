@@ -1,8 +1,12 @@
 import { formatApiErrorMessage } from "@/lib/api-errors";
+import { getApiBase } from "@/lib/runtime-config";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v3";
-
-export type Health = { status: string; provider: "linux" | "mock"; nfs_server?: string };
+export type Health = {
+  status: string;
+  provider: "linux" | "mock";
+  nfs_server?: string;
+  nfs_port?: string;
+};
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -20,7 +24,7 @@ export async function api<T>(
   const token = getToken();
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${getApiBase()}${path}`, { ...options, headers });
   if (res.status === 401) {
     const err = await res.json().catch(() => ({ error: "unauthorized" }));
     const message = formatApiErrorMessage(err.error || "unauthorized");
@@ -42,7 +46,7 @@ export async function api<T>(
 }
 
 export async function getHealth(): Promise<Health> {
-  const res = await fetch(`${API_BASE}/health`);
+  const res = await fetch(`${getApiBase()}/health`);
   return res.json();
 }
 

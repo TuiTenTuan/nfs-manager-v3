@@ -9,7 +9,9 @@ import (
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/audit"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/auth"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/config"
+	"github.com/nfs-manager/nfs-manager-v3/backend/internal/configuration"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/exports"
+	"github.com/nfs-manager/nfs-manager-v3/backend/internal/filesystem"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/groups"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/middleware"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/monitor"
@@ -31,8 +33,10 @@ type Services struct {
 	Exports   *exports.Service
 	Templates *templates.Service
 	Monitor   *monitor.Service
-	Reports   *reports.Service
-	Audit     *audit.Service
+	Reports        *reports.Service
+	Audit          *audit.Service
+	Filesystem     *filesystem.Service
+	Configuration  *configuration.Service
 }
 
 func Setup(svc *Services) *gin.Engine {
@@ -49,6 +53,7 @@ func Setup(svc *Services) *gin.Engine {
 				"status":     "ok",
 				"provider":   svc.Provider.Name(),
 				"nfs_server": svc.Config.NFSServerHost,
+				"nfs_port":   svc.Config.NFSPort,
 			})
 		})
 
@@ -66,6 +71,8 @@ func Setup(svc *Services) *gin.Engine {
 			svc.Shares.RegisterRoutes(ro.Group("/shares"))
 			svc.Templates.RegisterRoutes(ro.Group("/templates"))
 			svc.Exports.RegisterRoutes(ro.Group("/exports"))
+			svc.Filesystem.RegisterRoutes(ro.Group("/filesystem"))
+			svc.Configuration.RegisterRoutes(ro.Group("/configuration"))
 			svc.Monitor.RegisterRoutes(ro.Group("/monitor"))
 			svc.Reports.RegisterRoutes(ro.Group("/reports"))
 		}
