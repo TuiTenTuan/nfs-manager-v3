@@ -918,7 +918,10 @@ function MountConfigGenerator({ shareId, exportPath }: { shareId: string; export
             <Input value={mountPoint} onChange={(e) => setMountPoint(e.target.value)} placeholder="/mnt/nfs/data" />
           </FormField>
           <FormField label="NFS version" info={mountFieldInfo.version}>
-            <Select value={version} onValueChange={setVersion}>
+            <Select
+              value={version}
+              onValueChange={(v) => setVersion(v as (typeof NFS_MOUNT_VERSIONS)[number])}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>

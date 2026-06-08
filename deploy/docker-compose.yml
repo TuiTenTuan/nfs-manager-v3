@@ -1,0 +1,75 @@
+# NFS Manager v3 — local Docker stack (app + PostgreSQL)
+#
+# From repo root:
+#   cp deploy/.env.example deploy/.env   # edit secrets
+#   make docker-up
+#   make docker-down
+#
+# UI:  http://localhost:3001/login
+# API: http://localhost:8081/api/v3/health
+#
+# NFS client mount example (Linux host, replace paths as needed):
+#   sudo mkdir -p /mnt/nfs-test
+#   sudo mount -t nfs -o vers=4.2,proto=tcp localhost:/srv/test /mnt/nfs-test
+# On Docker Desktop Windows, NFS export from the container may require WSL2/Linux
+# client tooling; privileged mode is required for in-container nfsd.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nfsmanager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:-nfsmanager_v3}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-nfsmanager} -d ${POSTGRES_DB:-nfsmanager_v3}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8081/api/v3}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME:-NFS Manager v3}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_USER: ${DATABASE_USER:-nfsmanager}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in deploy/.env}
+      DATABASE_NAME: ${DATABASE_NAME:-nfsmanager_v3}
+      DATABASE_SSL_MODE: ${DATABASE_SSL_MODE:-disable}
+      HTTP_PORT: ${HTTP_PORT:-8081}
+      APP_ENV: ${APP_ENV:-production}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3001}
+      NFS_PROVIDER: linux
+      NFS_SERVER_HOST: ${NFS_SERVER_HOST:-localhost}
+      NFS_ROOT_ALLOWLIST: ${NFS_ROOT_ALLOWLIST:-/srv,/data,/export,/mnt}
+      MANAGED_EXPORTS_PATH: /etc/exports.d/nfs-manager.exports
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in deploy/.env}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in deploy/.env}
+      PORT: ${PORT:-3001}
+      HOSTNAME: ${HOSTNAME:-0.0.0.0}
+    ports:
+      - "3001:3001"
+      - "8081:8081"
+      - "2049:2049"
+    # privileged: kernel NFS (rpc.nfsd) needs mount namespaces and rpc_pipefs
+    privileged: true
+    volumes:
+      - ./srv:/srv
+
+volumes:
+  postgres_data:

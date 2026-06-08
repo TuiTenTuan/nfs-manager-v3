@@ -1,0 +1,15 @@
+.git
+.cursor
+.codegraph
+Prompts
+node_modules
+frontend/node_modules
+frontend/.next
+backend/bin
+*.log
+.env
+.env.*
+backend/.env
+frontend/.env
+deploy/.env
+**/.DS_Store

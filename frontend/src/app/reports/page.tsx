@@ -124,7 +124,7 @@ export default function ReportsPage() {
               ].map((s) => (
                 <div key={s.label} className="rounded-lg border p-4">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">{s.label}</p>
-                  {"throughput" in s ? (
+                  {"throughput" in s && s.throughput ? (
                     <p className="mt-1 flex items-baseline gap-1.5">
                       <span className="text-xl font-semibold font-mono tabular-nums">{s.throughput.value}</span>
                       <span className="text-base font-medium text-muted-foreground">{s.throughput.unit}</span>

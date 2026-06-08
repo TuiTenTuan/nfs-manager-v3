@@ -99,6 +99,7 @@ function ChartLegendContent({ payload }: { payload?: LegendEntry[] }) {
 }
 
 export function ChartLegend(props?: Partial<LegendProps>) {
+  const { ref: _ref, ...rest } = props ?? {};
   return (
     <Legend
       verticalAlign="bottom"
@@ -108,7 +109,7 @@ export function ChartLegend(props?: Partial<LegendProps>) {
       content={(legendProps) => (
         <ChartLegendContent payload={legendProps.payload as LegendEntry[] | undefined} />
       )}
-      {...props}
+      {...rest}
     />
   );
 }

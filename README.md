@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/status-pre--release-orange)]()
-[![Docker](https://img.shields.io/badge/docker-coming%20soon-lightgrey)]()
+[![Docker](https://img.shields.io/badge/docker-ready-blue)]()
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](backend/go.mod)
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](frontend/package.json)
 
@@ -10,7 +10,7 @@
 
 NFS Manager v3 is a self-hosted control plane for Linux NFS servers. It gives sysadmins and homelab operators a clear interface to create shares, validate export lines, apply changes safely, and monitor throughput — backed by a Go API, PostgreSQL, and a Next.js dashboard.
 
-> **Pre-release notice:** The application is functional for local and native Linux deployment. Official Docker images and `docker compose` packaging are in active development and will ship soon.
+> **Pre-release notice:** The application is functional for local, Docker, and native Linux deployment. Docker packaging includes an in-container NFS server for testing real Linux exports from Windows dev machines.
 
 ---
 
@@ -152,16 +152,37 @@ make dev-mock     # mock NFS provider (Windows / macOS dev)
 
 ## Docker
 
-> **Coming soon.** Docker image build and `docker compose` deployment are actively being prepared for the first public release.
-
-The Makefile already defines targets for when packaging lands:
+Run the full stack (API + Next.js UI + in-container NFS + PostgreSQL) from the repo root:
 
 ```bash
-make docker-up    # docker compose -f deploy/docker-compose.yml up -d --build
+cp deploy/.env.example deploy/.env   # edit DATABASE_PASSWORD and JWT secrets
+make docker-up
+```
+
+| Service | URL |
+|---------|-----|
+| UI | http://localhost:3001/login |
+| API health | http://localhost:8081/api/v3/health |
+| NFS | `localhost:2049` |
+
+On first startup, check `docker compose -f deploy/docker-compose.yml logs app` for the one-time `admin` password.
+
+Stop the stack:
+
+```bash
 make docker-down
 ```
 
-Until the image is published, use the [Getting started](#getting-started) steps above or the native Linux install below.
+**NFS client mount** (Linux client; Docker Desktop may need WSL2/Linux tooling):
+
+```bash
+sudo mkdir -p /mnt/nfs-test
+sudo mount -t nfs -o vers=4.2,proto=tcp localhost:/srv/test /mnt/nfs-test
+```
+
+Export paths under `/srv` are bind-mounted from `deploy/srv/` for easy testing. The app container runs `privileged: true` so the kernel NFS daemon can start inside the container.
+
+On Docker Desktop (Windows/macOS), in-container NFS may log `does not support NFS export` for bind-mounted paths; use a Linux host or WSL2 NFS client for full mount testing. The API and UI still run with `NFS_PROVIDER=linux`.
 
 ---
 
@@ -217,7 +238,7 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 
 ## What's next
 
-- [ ] **Docker image** — official container and `docker compose` stack for one-command deployment
+- [x] **Docker image** — container and `docker compose` stack for one-command deployment
 - [ ] **CI badges** — build and test status shields once GitHub Actions are wired
 - [ ] **Screenshots & demo** — visual tour of the dashboard and share workflow
 - [ ] **Release notes** — first stable tag and changelog

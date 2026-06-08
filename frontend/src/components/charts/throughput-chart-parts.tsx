@@ -9,6 +9,7 @@ import {
   maxThroughputKb,
   pickThroughputScale,
   throughputAxisMax,
+  throughputYTicks,
 } from "@/lib/chart-throughput";
 
 export function useThroughputScale(data: Array<{ read?: number; write?: number }>): ThroughputScale {
