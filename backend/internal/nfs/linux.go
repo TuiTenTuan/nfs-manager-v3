@@ -38,7 +38,26 @@ func (l *LinuxProvider) Apply(content string) error {
 	return os.WriteFile(l.managedPath, []byte(content), 0644)
 }
 
+func (l *LinuxProvider) ensureExportPaths() error {
+	content, err := os.ReadFile(l.managedPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("read managed exports: %w", err)
+	}
+	for _, line := range ParseExportLines(string(content)) {
+		if err := os.MkdirAll(line.Path, 0755); err != nil {
+			return fmt.Errorf("create export path %s: %w", line.Path, err)
+		}
+	}
+	return nil
+}
+
 func (l *LinuxProvider) Reload() error {
+	if err := l.ensureExportPaths(); err != nil {
+		return err
+	}
 	cmd := exec.Command("exportfs", "-ra")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -48,7 +67,14 @@ func (l *LinuxProvider) Reload() error {
 }
 
 func (l *LinuxProvider) SyncFromOS() (string, error) {
-	data, err := os.ReadFile(l.osExports)
+	data, err := os.ReadFile(l.managedPath)
+	if err == nil && strings.TrimSpace(string(data)) != "" {
+		return string(data), nil
+	}
+	if err != nil && !os.IsNotExist(err) {
+		return "", fmt.Errorf("read managed exports: %w", err)
+	}
+	data, err = os.ReadFile(l.osExports)
 	if err != nil {
 		return "", fmt.Errorf("read exports: %w", err)
 	}

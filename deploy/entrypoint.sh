@@ -31,7 +31,9 @@ cat > /etc/nfs.conf <<EOF
 port=${NFS_PORT}
 EOF
 touch /etc/exports.d/nfs-manager.exports
-ln -sf /etc/exports.d/nfs-manager.exports /etc/exports
+# Do not symlink /etc/exports to exports.d — exportfs reads both and duplicates entries.
+printf '# Managed NFS exports live in /etc/exports.d/nfs-manager.exports\n' > /etc/exports
+mkdir -p /srv/nfs/data
 
 log "Mounting rpc_pipefs"
 mkdir -p /var/lib/nfs/rpc_pipefs /var/lib/nfs/v4recovery

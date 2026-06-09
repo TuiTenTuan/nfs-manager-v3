@@ -103,8 +103,7 @@ func RenderFormLine(path string, basic ShareForm, adv ShareAdvanced) string {
 	}
 	if adv.SubtreeCheck {
 		opts = append(opts, "subtree_check")
-	}
-	if adv.NoSubtreeCheck {
+	} else {
 		opts = append(opts, "no_subtree_check")
 	}
 	if adv.SecurePorts {

@@ -3,8 +3,7 @@
 import { useRef, useState } from "react";
 import { DownloadSimple, UploadSimple } from "@phosphor-icons/react";
 import { toast } from "@/lib/toast";
-import { api, isAdmin } from "@/lib/api";
-import { getApiBase } from "@/lib/runtime-config";
+import { api, apiFetch, isAdmin } from "@/lib/api";
 import { useConfirm } from "@/lib/confirm";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -33,10 +32,7 @@ export default function ExportImportPage() {
   async function exportConfig() {
     setBusy(true);
     try {
-      const token = localStorage.getItem("access_token");
-      const res = await fetch(`${getApiBase()}/configuration/export`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      });
+      const res = await apiFetch("/configuration/export");
       if (!res.ok) throw new Error("Export failed");
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
