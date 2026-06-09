@@ -64,7 +64,7 @@ Editing NFS exports by hand is error-prone and hard to audit. NFS Manager v3 cen
 ## Architecture
 
 ```
-Browser → Next.js (3000) → REST /api/v3 → Gin API (8080) → PostgreSQL
+Browser → Next.js (3001) → REST /api/v3 → Gin API (8081) → PostgreSQL
                                       ↘ nfs.Provider → Linux tools | Mock store
 ```
 
@@ -128,7 +128,7 @@ Username: admin
 Password: <random>
 ```
 
-Log in at `http://localhost:3000/login`, then change the password under **Settings**.
+Log in at `http://localhost:3001/login`, then change the password under **Settings**.
 
 ### 4. Start the frontend
 
@@ -136,7 +136,7 @@ Log in at `http://localhost:3000/login`, then change the password under **Settin
 cd frontend && npm install && npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3001](http://localhost:3001).
 
 ### Quick start with Make
 
@@ -308,7 +308,6 @@ The stack reads configuration from three places:
 | `JWT_ACCESS_TTL`       | Optional     | `15m`                                | Access-token lifetime                                                | `deploy/.env` (`env_file`), `config.go`                                                           |
 | `JWT_REFRESH_TTL`      | Optional     | `168h`                               | Refresh-token lifetime                                               | `deploy/.env` (`env_file`), `config.go`                                                           |
 | `CORS_ORIGIN`          | Optional     | `http://localhost:3001`              | Allowed frontend origin for CORS                                     | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
-| `NFS_PROVIDER`         | Optional     | `linux`                              | NFS backend (`linux` or `mock`; compose sets `linux`)                | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
 | `NFS_SERVER_HOST`      | Optional     | `localhost`                          | Hostname shown in health checks and mount hints                      | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
 | `NFS_PORT`             | Optional     | `2049`                               | NFS server port (`rpc.nfsd`)                                         | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`, `config.go` |
 | `NFS_ROOT_ALLOWLIST`   | Optional     | `/srv,/data,/export,/mnt`            | Comma-separated allowed export path roots                            | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
@@ -361,15 +360,13 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 
 | Variable                                   | Description                               | Default                              |
 | ------------------------------------------ | ----------------------------------------- | ------------------------------------ |
-| `API_PORT`                                 | API listen port                           | `8080`                               |
+| `API_PORT`                                 | API listen port                           | `8081`                               |
 | `DATABASE_*`                               | PostgreSQL connection                     | see `.env.example`                   |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing keys                        | **change in production**             |
-| `NFS_PROVIDER`                             | `linux` or `mock`                         | `linux` on Linux, `mock` elsewhere   |
 | `NFS_SERVER_HOST`                          | Hostname shown in health/mount hints      | system hostname                      |
 | `NFS_PORT`                                 | NFS server port (`rpc.nfsd`)              | `2049`                               |
 | `NFS_ROOT_ALLOWLIST`                       | Comma-separated allowed export path roots | `/srv,/data,/export,/mnt`            |
-| `MANAGED_EXPORTS_PATH`                     | Managed exports file on Linux             | `/etc/exports.d/nfs-manager.exports` |
-| `CORS_ORIGIN`                              | Allowed frontend origin                   | `http://localhost:3000`              |
+| `CORS_ORIGIN`                              | Allowed frontend origin                   | `http://localhost:3001`              |
 
 
 ### Frontend (`frontend/.env`)
