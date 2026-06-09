@@ -1,10 +1,10 @@
 # NFS Manager v3
 
-[License: MIT](LICENSE)
-[Status]()
-[Docker]()
-[Go](backend/go.mod)
-[Next.js](frontend/package.json)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-pre--release-orange)]()
+[![Docker](https://img.shields.io/badge/docker-ready-blue)]()
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](backend/go.mod)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](frontend/package.json)
 
 **Manage NFS exports from a modern web UI — without living in `/etc/exports`.**
 
