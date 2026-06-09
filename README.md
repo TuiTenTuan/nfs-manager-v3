@@ -10,8 +10,6 @@
 
 NFS Manager v3 is a self-hosted control plane for Linux NFS servers. It gives sysadmins and homelab operators a clear interface to create shares, validate export lines, apply changes safely, and monitor throughput — backed by a Go API, PostgreSQL, and a Next.js dashboard.
 
-> **Pre-release notice:** The application is functional for local, Docker, and native Linux deployment. Docker packaging includes an in-container NFS server for testing real Linux exports from Windows dev machines.
-
 ---
 
 ## Why NFS Manager?
@@ -228,7 +226,7 @@ docker run -d \
   -p 3001:3001 \
   -p 8081:8081 \
   -p 2049:2049 \
-  -v "$(pwd)/deploy/srv:/srv" \
+  -v nfs-share:/srv \
   -e DATABASE_HOST=nfs-manager-postgres \
   -e DATABASE_PORT=5432 \
   -e DATABASE_USER=nfsmanager \
