@@ -1,10 +1,10 @@
 # NFS Manager v3
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/status-pre--release-orange)]()
-[![Docker](https://img.shields.io/badge/docker-ready-blue)]()
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](backend/go.mod)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](frontend/package.json)
+[License: MIT](LICENSE)
+[Status]()
+[Docker]()
+[Go](backend/go.mod)
+[Next.js](frontend/package.json)
 
 **Manage NFS exports from a modern web UI — without living in `/etc/exports`.**
 
@@ -29,17 +29,19 @@ Editing NFS exports by hand is error-prone and hard to audit. NFS Manager v3 cen
 
 ## Features
 
-| Area | What you get |
-|------|----------------|
-| **Shares** | Create, edit, enable/disable, and organize NFS shares by group |
-| **Templates** | Reusable export presets to speed up new share setup |
-| **Form & raw modes** | Guided forms or direct export-line editing; convert between modes |
-| **Apply workflow** | Per-share or global validate → write managed file → `exportfs -ra` reload |
-| **OS sync** | Import existing exports from the host on startup or on demand |
-| **Monitoring** | Real-time dashboard with live throughput charts and client tables |
-| **Reports** | Day, week, month, and year rollups from stored metric samples |
-| **Users & RBAC** | JWT auth with `admin` (full access) and `viewer` (read-only) roles |
-| **Dev-friendly** | Mock NFS provider for development on Windows and macOS |
+
+| Area                 | What you get                                                              |
+| -------------------- | ------------------------------------------------------------------------- |
+| **Shares**           | Create, edit, enable/disable, and organize NFS shares by group            |
+| **Templates**        | Reusable export presets to speed up new share setup                       |
+| **Form & raw modes** | Guided forms or direct export-line editing; convert between modes         |
+| **Apply workflow**   | Per-share or global validate → write managed file → `exportfs -ra` reload |
+| **OS sync**          | Import existing exports from the host on startup or on demand             |
+| **Monitoring**       | Real-time dashboard with live throughput charts and client tables         |
+| **Reports**          | Day, week, month, and year rollups from stored metric samples             |
+| **Users & RBAC**     | JWT auth with `admin` (full access) and `viewer` (read-only) roles        |
+| **Dev-friendly**     | Mock NFS provider for development on Windows and macOS                    |
+
 
 ---
 
@@ -47,13 +49,17 @@ Editing NFS exports by hand is error-prone and hard to audit. NFS Manager v3 cen
 
 > Screenshots coming soon. Replace the placeholders below with images from your deployment.
 
-| Dashboard | Share editor |
-|-----------|--------------|
+
+| Dashboard                        | Share editor                        |
+| -------------------------------- | ----------------------------------- |
 | `docs/screenshots/dashboard.png` | `docs/screenshots/share-editor.png` |
 
-| Live monitor | Reports |
-|--------------|---------|
+
+
+| Live monitor                   | Reports                        |
+| ------------------------------ | ------------------------------ |
 | `docs/screenshots/monitor.png` | `docs/screenshots/reports.png` |
+
 
 ---
 
@@ -77,12 +83,14 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for package-level detail and [d
 
 ## Requirements
 
-| Component | Version |
-|-----------|---------|
-| Go | 1.22+ |
-| Node.js | 18+ |
-| PostgreSQL | 14+ recommended |
+
+| Component          | Version                                           |
+| ------------------ | ------------------------------------------------- |
+| Go                 | 1.22+                                             |
+| Node.js            | 18+                                               |
+| PostgreSQL         | 14+ recommended                                   |
 | Linux (production) | `nfs-kernel-server` / `nfs-utils` with `exportfs` |
+
 
 For development on non-Linux systems, set `NFS_PROVIDER=mock` to run without a real NFS server.
 
@@ -157,11 +165,13 @@ Before first run, copy `deploy/.env.example` to `deploy/.env` and change these *
 - `JWT_ACCESS_SECRET` — access-token signing key (use a long random string)
 - `JWT_REFRESH_SECRET` — refresh-token signing key (use a long random string)
 
-| Service | URL |
-|---------|-----|
-| UI | http://localhost:3001/login |
-| API health | http://localhost:8081/api/v3/health |
-| NFS | `localhost:${NFS_PORT:-2049}` |
+
+| Service    | URL                                                                        |
+| ---------- | -------------------------------------------------------------------------- |
+| UI         | [http://localhost:3001/login](http://localhost:3001/login)                 |
+| API health | [http://localhost:8081/api/v3/health](http://localhost:8081/api/v3/health) |
+| NFS        | `localhost:${NFS_PORT:-2049}`                                              |
+
 
 On first startup, check `docker compose -f deploy/docker-compose.yml logs app` for the one-time `admin` password.
 
@@ -186,7 +196,7 @@ On Docker Desktop (Windows/macOS), in-container NFS may log `does not support NF
 
 ### Run with docker run
 
-The app image bundles the API, Next.js UI, and in-container NFS server. **PostgreSQL is not included** — run a separate Postgres container (or external database) and point `DATABASE_*` at it.
+The app image bundles the API, Next.js UI, and in-container NFS server. **PostgreSQL is not included** — run a separate Postgres container (or external database) and point `DATABASE_`* at it.
 
 **Build the image** from the repo root:
 
@@ -234,22 +244,22 @@ docker run -d \
   -e APP_ENV=production \
   -e CORS_ORIGIN=http://localhost:3001 \
   -e NEXT_PUBLIC_API_BASE=http://localhost:8081/api/v3 \
-  -e NFS_PROVIDER=linux \
   -e NFS_SERVER_HOST=localhost \
   -e NFS_PORT=2049 \
   -e NFS_ROOT_ALLOWLIST=/srv,/data,/export,/mnt \
-  -e MANAGED_EXPORTS_PATH=/etc/exports.d/nfs-manager.exports \
   nfs-manager-v3:latest
 ```
 
-| Flag / setting | Why |
-|----------------|-----|
-| `--privileged` | Required for in-container kernel NFS (`rpc.nfsd`, `rpc_pipefs`) |
-| `-p 3001:3001` | Next.js UI (`APP_PORT`) |
-| `-p 8081:8081` | Go API (`API_PORT`) |
-| `-p 2049:2049` | NFS server (`NFS_PORT`) |
-| `-v …/deploy/srv:/srv` | Bind-mount export paths for testing (same as compose) |
+
+| Flag / setting              | Why                                                                         |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `--privileged`              | Required for in-container kernel NFS (`rpc.nfsd`, `rpc_pipefs`)             |
+| `-p 3001:3001`              | Next.js UI (`APP_PORT`)                                                     |
+| `-p 8081:8081`              | Go API (`API_PORT`)                                                         |
+| `-p 2049:2049`              | NFS server (`NFS_PORT`)                                                     |
+| `-v …/deploy/srv:/srv`      | Bind-mount export paths for testing (same as compose)                       |
 | `--network nfs-manager-net` | Lets `DATABASE_HOST=nfs-manager-postgres` resolve to the Postgres container |
+
 
 On first startup, check logs for the one-time admin password:
 
@@ -266,8 +276,8 @@ For docker-compose instead, use `make docker-up` as described above.
 The stack reads configuration from three places:
 
 1. **Dockerfile** — baked defaults in the image (`ENV`) and one build-time arg (`NEXT_PUBLIC_APP_NAME`)
-2. **`deploy/docker-compose.yml`** — service `environment` blocks override image defaults at runtime
-3. **`deploy/.env`** — operator overrides via `env_file` on the `app` service and `${VAR}` substitution in compose
+2. `**deploy/docker-compose.yml`** — service `environment` blocks override image defaults at runtime
+3. `**deploy/.env`** — operator overrides via `env_file` on the `app` service and `${VAR}` substitution in compose
 
 **Ports exposed** (host → container): `APP_PORT` (3001), `API_PORT` (8081), `NFS_PORT` (2049).
 
@@ -275,42 +285,48 @@ The stack reads configuration from three places:
 
 #### Build-time
 
-| Variable | Required | Default | Description | Set in |
-|----------|----------|---------|-------------|--------|
+
+| Variable               | Required | Default          | Description                                           | Set in                                                                   |
+| ---------------------- | -------- | ---------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
 | `NEXT_PUBLIC_APP_NAME` | Optional | `NFS Manager v3` | Display name in the UI (baked into the Next.js build) | Dockerfile `ARG`/`ENV`, `docker-compose.yml` `build.args`, `deploy/.env` |
+
 
 #### App container (runtime)
 
-| Variable | Required | Default | Description | Set in |
-|----------|----------|---------|-------------|--------|
-| `API_PORT` | Optional | `8081` | API listen port | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh` |
-| `APP_PORT` | Optional | `3001` | Next.js listen port | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh` |
-| `APP_ENV` | Optional | `production` | Application environment (`dev` or `production`) | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_HOST` | Optional | `postgres` | PostgreSQL hostname (compose service name) | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_PORT` | Optional | `5432` | PostgreSQL port | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_USER` | Optional | `nfsmanager` | PostgreSQL username for the API | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_PASSWORD` | **Required** | — | PostgreSQL password for the API connection | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_NAME` | Optional | `nfsmanager_v3` | PostgreSQL database name | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `DATABASE_SSL_MODE` | Optional | `disable` | PostgreSQL SSL mode | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `JWT_ACCESS_SECRET` | **Required** | — | Access-token signing key | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `JWT_REFRESH_SECRET` | **Required** | — | Refresh-token signing key | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `JWT_ACCESS_TTL` | Optional | `15m` | Access-token lifetime | `deploy/.env` (`env_file`), `config.go` |
-| `JWT_REFRESH_TTL` | Optional | `168h` | Refresh-token lifetime | `deploy/.env` (`env_file`), `config.go` |
-| `CORS_ORIGIN` | Optional | `http://localhost:3001` | Allowed frontend origin for CORS | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `NFS_PROVIDER` | Optional | `linux` | NFS backend (`linux` or `mock`; compose sets `linux`) | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `NFS_SERVER_HOST` | Optional | `localhost` | Hostname shown in health checks and mount hints | `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `NFS_PORT` | Optional | `2049` | NFS server port (`rpc.nfsd`) | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`, `config.go` |
-| `NFS_ROOT_ALLOWLIST` | Optional | `/srv,/data,/export,/mnt` | Comma-separated allowed export path roots | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `MANAGED_EXPORTS_PATH` | Optional | `/etc/exports.d/nfs-manager.exports` | Managed exports file inside the container | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go` |
-| `NEXT_PUBLIC_API_BASE` | Optional | `http://localhost:8081/api/v3` | API base URL for the browser (written to `public/env.js` at runtime) | `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh` |
+
+| Variable               | Required     | Default                              | Description                                                          | Set in                                                                                            |
+| ---------------------- | ------------ | ------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `API_PORT`             | Optional     | `8081`                               | API listen port                                                      | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`              |
+| `APP_PORT`             | Optional     | `3001`                               | Next.js listen port                                                  | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`              |
+| `APP_ENV`              | Optional     | `production`                         | Application environment (`dev` or `production`)                      | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
+| `DATABASE_HOST`        | Optional     | `postgres`                           | PostgreSQL hostname (compose service name)                           | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `DATABASE_PORT`        | Optional     | `5432`                               | PostgreSQL port                                                      | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `DATABASE_USER`        | Optional     | `nfsmanager`                         | PostgreSQL username for the API                                      | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `DATABASE_PASSWORD`    | **Required** | —                                    | PostgreSQL password for the API connection                           | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `DATABASE_NAME`        | Optional     | `nfsmanager_v3`                      | PostgreSQL database name                                             | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `DATABASE_SSL_MODE`    | Optional     | `disable`                            | PostgreSQL SSL mode                                                  | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `JWT_ACCESS_SECRET`    | **Required** | —                                    | Access-token signing key                                             | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `JWT_REFRESH_SECRET`   | **Required** | —                                    | Refresh-token signing key                                            | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `JWT_ACCESS_TTL`       | Optional     | `15m`                                | Access-token lifetime                                                | `deploy/.env` (`env_file`), `config.go`                                                           |
+| `JWT_REFRESH_TTL`      | Optional     | `168h`                               | Refresh-token lifetime                                               | `deploy/.env` (`env_file`), `config.go`                                                           |
+| `CORS_ORIGIN`          | Optional     | `http://localhost:3001`              | Allowed frontend origin for CORS                                     | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `NFS_PROVIDER`         | Optional     | `linux`                              | NFS backend (`linux` or `mock`; compose sets `linux`)                | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
+| `NFS_SERVER_HOST`      | Optional     | `localhost`                          | Hostname shown in health checks and mount hints                      | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
+| `NFS_PORT`             | Optional     | `2049`                               | NFS server port (`rpc.nfsd`)                                         | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`, `config.go` |
+| `NFS_ROOT_ALLOWLIST`   | Optional     | `/srv,/data,/export,/mnt`            | Comma-separated allowed export path roots                            | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
+| `MANAGED_EXPORTS_PATH` | Optional     | `/etc/exports.d/nfs-manager.exports` | Managed exports file inside the container                            | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
+| `NEXT_PUBLIC_API_BASE` | Optional     | `http://localhost:8081/api/v3`       | API base URL for the browser (written to `public/env.js` at runtime) | `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`                                |
+
 
 #### PostgreSQL service
 
-| Variable | Required | Default | Description | Set in |
-|----------|----------|---------|-------------|--------|
-| `POSTGRES_USER` | Optional | `nfsmanager` | PostgreSQL role name | `docker-compose.yml` `environment`, `deploy/.env` |
-| `POSTGRES_PASSWORD` | **Required** | — | PostgreSQL container password | `docker-compose.yml` `environment`, `deploy/.env` |
-| `POSTGRES_DB` | Optional | `nfsmanager_v3` | Database created on first start | `docker-compose.yml` `environment`, `deploy/.env` |
+
+| Variable            | Required     | Default         | Description                     | Set in                                            |
+| ------------------- | ------------ | --------------- | ------------------------------- | ------------------------------------------------- |
+| `POSTGRES_USER`     | Optional     | `nfsmanager`    | PostgreSQL role name            | `docker-compose.yml` `environment`, `deploy/.env` |
+| `POSTGRES_PASSWORD` | **Required** | —               | PostgreSQL container password   | `docker-compose.yml` `environment`, `deploy/.env` |
+| `POSTGRES_DB`       | Optional     | `nfsmanager_v3` | Database created on first start | `docker-compose.yml` `environment`, `deploy/.env` |
+
 
 ---
 
@@ -344,25 +360,29 @@ Serve the frontend with `npm run start` in `frontend/`, or place it behind a rev
 
 ### Backend (`backend/.env`)
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_PORT` | API listen port | `8080` |
-| `DATABASE_*` | PostgreSQL connection | see `.env.example` |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing keys | **change in production** |
-| `NFS_PROVIDER` | `linux` or `mock` | `linux` on Linux, `mock` elsewhere |
-| `NFS_SERVER_HOST` | Hostname shown in health/mount hints | system hostname |
-| `NFS_PORT` | NFS server port (`rpc.nfsd`) | `2049` |
-| `NFS_ROOT_ALLOWLIST` | Comma-separated allowed export path roots | `/srv,/data,/export,/mnt` |
-| `MANAGED_EXPORTS_PATH` | Managed exports file on Linux | `/etc/exports.d/nfs-manager.exports` |
-| `CORS_ORIGIN` | Allowed frontend origin | `http://localhost:3000` |
+
+| Variable                                   | Description                               | Default                              |
+| ------------------------------------------ | ----------------------------------------- | ------------------------------------ |
+| `API_PORT`                                 | API listen port                           | `8080`                               |
+| `DATABASE_*`                               | PostgreSQL connection                     | see `.env.example`                   |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Token signing keys                        | **change in production**             |
+| `NFS_PROVIDER`                             | `linux` or `mock`                         | `linux` on Linux, `mock` elsewhere   |
+| `NFS_SERVER_HOST`                          | Hostname shown in health/mount hints      | system hostname                      |
+| `NFS_PORT`                                 | NFS server port (`rpc.nfsd`)              | `2049`                               |
+| `NFS_ROOT_ALLOWLIST`                       | Comma-separated allowed export path roots | `/srv,/data,/export,/mnt`            |
+| `MANAGED_EXPORTS_PATH`                     | Managed exports file on Linux             | `/etc/exports.d/nfs-manager.exports` |
+| `CORS_ORIGIN`                              | Allowed frontend origin                   | `http://localhost:3000`              |
+
 
 ### Frontend (`frontend/.env`)
 
-| Variable | Description |
-|----------|-------------|
+
+| Variable               | Description                                                           |
+| ---------------------- | --------------------------------------------------------------------- |
 | `NEXT_PUBLIC_API_BASE` | API base URL for local dev (Docker writes `public/env.js` at runtime) |
-| `NEXT_PUBLIC_APP_NAME` | Display name in the UI |
-| `APP_PORT` | Next.js listen port (Docker / production) | `3001` |
+| `NEXT_PUBLIC_APP_NAME` | Display name in the UI                                                |
+| `APP_PORT`             | Next.js listen port (Docker / production)                             |
+
 
 ---
 
