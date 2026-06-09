@@ -49,11 +49,22 @@ func Setup(svc *Services) *gin.Engine {
 	v3 := r.Group("/api/v3")
 	{
 		v3.GET("/health", func(c *gin.Context) {
+			providerName := svc.Provider.Name()
+			if err := svc.Provider.CheckHealth(); err != nil {
+				c.JSON(http.StatusServiceUnavailable, gin.H{
+					"status":   "error",
+					"provider": providerName,
+					"exportfs": "error",
+					"error":    err.Error(),
+				})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{
 				"status":     "ok",
-				"provider":   svc.Provider.Name(),
+				"provider":   providerName,
 				"nfs_server": svc.Config.NFSServerHost,
 				"nfs_port":   svc.Config.NFSPort,
+				"exportfs":   "ok",
 			})
 		})
 

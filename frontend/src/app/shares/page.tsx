@@ -39,6 +39,28 @@ export default function SharesPage() {
     loadShares();
   }, []);
 
+  const deleteShare = async (share: Share) => {
+    const ok = await confirm({
+      title: "Delete share?",
+      description: `Permanently delete "${share.name}"? The export will be removed from NFS after apply.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      const result = await api<{ ok?: boolean; apply_warning?: string }>(`/shares/${share.id}`, {
+        method: "DELETE",
+      });
+      toast.success("Share deleted");
+      if (result.apply_warning) {
+        toast.warning("NFS reload failed", { description: result.apply_warning });
+      }
+      loadShares();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    }
+  };
+
   const syncFromOS = async () => {
     const ok = await confirm({
       title: "Sync shares from NFS server?",
@@ -133,9 +155,20 @@ export default function SharesPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Link href={`/shares/${s.id}/monitor`} className="text-sm text-primary hover:underline">
-                      Monitor
-                    </Link>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/shares/${s.id}/monitor`}>Monitor</Link>
+                      </Button>
+                      {isAdmin() && (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => deleteShare(s)}
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

@@ -188,6 +188,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col lg:h-dvh lg:overflow-hidden">
+      {health?.status === "error" && (
+        <div className="bg-destructive text-destructive-foreground text-center text-sm py-1.5 font-medium shrink-0">
+          NFS export health check failed{health.error ? `: ${health.error}` : ""}
+        </div>
+      )}
       {health?.provider === "mock" && (
         <div className="bg-amber-500/90 text-amber-950 text-center text-sm py-1.5 font-medium shrink-0">
           Mock NFS provider: metrics and apply are simulated (dev mode)

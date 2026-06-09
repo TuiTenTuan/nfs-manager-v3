@@ -5,6 +5,7 @@ type Provider interface {
 	ValidateText(text string) []ValidationError
 	Apply(content string) error
 	Reload() error
+	CheckHealth() error
 	SyncFromOS() (string, error)
 	GetManagedExports() (string, error)
 	SetManagedExports(content string) error

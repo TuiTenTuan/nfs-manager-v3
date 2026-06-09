@@ -14,6 +14,10 @@ export type Health = {
 
   nfs_port?: string;
 
+  exportfs?: string;
+
+  error?: string;
+
 };
 
 

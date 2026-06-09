@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "@/lib/toast";
 import { ArrowRight, Clipboard, ClipboardText } from "@phosphor-icons/react";
 import { api, getHealth, isAdmin } from "@/lib/api";
@@ -82,6 +83,7 @@ const emptyShare = (): ShareData => ({
 });
 
 export function ShareEditor({ shareId }: { shareId?: string }) {
+  const router = useRouter();
   const confirm = useConfirm();
   const [tab, setTab] = useState("basic");
   const [data, setData] = useState<ShareData | null>(() =>
@@ -358,6 +360,29 @@ export function ShareEditor({ shareId }: { shareId?: string }) {
     }
   }
 
+  async function deleteShare() {
+    if (!shareId || shareId === "new" || !data) return;
+    const ok = await confirm({
+      title: "Delete share?",
+      description: `Permanently delete "${data.name}"? The export will be removed from NFS after apply.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      const result = await api<{ ok?: boolean; apply_warning?: string }>(`/shares/${shareId}`, {
+        method: "DELETE",
+      });
+      toast.success("Share deleted");
+      if (result.apply_warning) {
+        toast.warning("NFS reload failed", { description: result.apply_warning });
+      }
+      router.push("/shares");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
   function generateRawFromForm() {
     if (!data) return;
     const line = renderExportLine(data.path, data.basic_json, data.advanced_json, "form");
@@ -385,12 +410,17 @@ export function ShareEditor({ shareId }: { shareId?: string }) {
           Apply
         </Button>
       {shareId && shareId !== "new" && (
-        <Button variant="secondary" asChild>
-          <Link href={`/shares/${shareId}/monitor`}>
-            Monitor
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+        <>
+          <Button variant="secondary" asChild>
+            <Link href={`/shares/${shareId}/monitor`}>
+              Monitor
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </Button>
+          <Button variant="destructive" onClick={deleteShare}>
+            Delete
+          </Button>
+        </>
       )}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -418,17 +448,16 @@ export function ShareEditor({ shareId }: { shareId?: string }) {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col min-w-0 overflow-hidden">
+    <div className="min-w-0 space-y-4">
       {dirty && (
-        <div className="mb-3 shrink-0 rounded-md border border-amber-500/40 bg-amber-500/15 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/15 px-4 py-2 text-sm text-amber-900 dark:text-amber-100">
           Unsaved changes. Save before leaving or applying.
         </div>
       )}
 
-      <div className="scrollbar-themed min-h-0 flex-1 overflow-y-auto">
-        {pageToolbar}
+      {pageToolbar}
 
-        <div className="space-y-4 pt-4">
+      <div className="space-y-4">
       <Tabs
         value={tab}
         onValueChange={(v) => {
@@ -899,8 +928,6 @@ export function ShareEditor({ shareId }: { shareId?: string }) {
           </CardContent>
         </Card>
       )}
-
-        </div>
       </div>
     </div>
   );
@@ -1105,7 +1132,13 @@ function MountConfigGenerator({ shareId, exportPath }: { shareId: string; export
               <pre className="font-mono text-xs bg-muted/50 p-3 rounded-md overflow-x-auto">{result.fstab_line}</pre>
             </div>
             <div className="space-y-1">
-              <span className="text-sm font-medium">Options</span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-medium">Options</span>
+                <Button variant="outline" size="sm" onClick={() => copy(result.options_string)}>
+                  <Clipboard className="h-4 w-4" />
+                  Copy
+                </Button>
+              </div>
               <pre className="font-mono text-xs bg-muted/50 p-3 rounded-md overflow-x-auto">{result.options_string}</pre>
             </div>
           </div>

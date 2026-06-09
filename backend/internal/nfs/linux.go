@@ -1,12 +1,24 @@
 package nfs
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 )
+
+func exportfsExitCode(err error) int {
+	if err == nil {
+		return 0
+	}
+	var exitErr *exec.ExitError
+	if ok := errors.As(err, &exitErr); ok {
+		return exitErr.ExitCode()
+	}
+	return -1
+}
 
 type LinuxProvider struct {
 	allowlist    []string
@@ -54,16 +66,28 @@ func (l *LinuxProvider) ensureExportPaths() error {
 	return nil
 }
 
+func (l *LinuxProvider) runExportfs(args ...string) error {
+	cmd := exec.Command("exportfs", args...)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return &ReloadError{
+			ExitCode: exportfsExitCode(err),
+			Stderr:   string(out),
+			Err:      err,
+		}
+	}
+	return nil
+}
+
 func (l *LinuxProvider) Reload() error {
 	if err := l.ensureExportPaths(); err != nil {
 		return err
 	}
-	cmd := exec.Command("exportfs", "-ra")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("exportfs -ra: %w: %s", err, string(out))
-	}
-	return nil
+	return l.runExportfs("-ra")
+}
+
+func (l *LinuxProvider) CheckHealth() error {
+	return l.runExportfs("-v")
 }
 
 func (l *LinuxProvider) SyncFromOS() (string, error) {

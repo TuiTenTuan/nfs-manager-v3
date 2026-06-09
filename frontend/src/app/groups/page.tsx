@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "@/lib/toast";
@@ -86,6 +87,23 @@ export default function GroupsPage() {
     }
   }
 
+  async function deleteGroup(group: Group) {
+    const ok = await confirm({
+      title: "Delete group?",
+      description: `Delete group "${group.name}"? Shares in this group will be ungrouped, not deleted.`,
+      confirmLabel: "Delete",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    try {
+      await api(`/groups/${group.id}`, { method: "DELETE" });
+      toast.success("Group deleted");
+      load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Delete failed");
+    }
+  }
+
   async function onCreate(data: GroupForm) {
     try {
       await api("/groups", { method: "POST", body: JSON.stringify(data) });
@@ -138,7 +156,9 @@ export default function GroupsPage() {
             <div key={g.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <p className="font-medium">{g.name}</p>
+                  <Link href={`/groups/${g.id}`} className="font-medium hover:text-primary">
+                    {g.name}
+                  </Link>
                   <Badge variant="secondary">{formatShareCount(g.share_count ?? 0)}</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">{g.description || "No description"}</p>
@@ -182,6 +202,13 @@ export default function GroupsPage() {
                     }}
                   >
                     Disable all
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => deleteGroup(g)}
+                  >
+                    Delete
                   </Button>
                 </div>
               )}

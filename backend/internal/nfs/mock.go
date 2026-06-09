@@ -49,6 +49,8 @@ func (m *MockProvider) Apply(content string) error {
 
 func (m *MockProvider) Reload() error { return nil }
 
+func (m *MockProvider) CheckHealth() error { return nil }
+
 func (m *MockProvider) SyncFromOS() (string, error) {
 	return `# Imported from mock OS /etc/exports
 /srv/nfs/imported *(rw,sync,root_squash)

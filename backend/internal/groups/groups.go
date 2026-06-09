@@ -12,6 +12,7 @@ import (
 
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/audit"
 	"github.com/nfs-manager/nfs-manager-v3/backend/internal/middleware"
+	"github.com/nfs-manager/nfs-manager-v3/backend/internal/shares"
 )
 
 type Group struct {
@@ -24,12 +25,17 @@ type Group struct {
 }
 
 type Service struct {
-	pool  *pgxpool.Pool
-	audit *audit.Service
+	pool   *pgxpool.Pool
+	audit  *audit.Service
+	shares *shares.Service
 }
 
-func New(pool *pgxpool.Pool, au *audit.Service) *Service {
-	return &Service{pool: pool, audit: au}
+func New(pool *pgxpool.Pool, au *audit.Service, sh *shares.Service) *Service {
+	return &Service{pool: pool, audit: au, shares: sh}
+}
+
+func (s *Service) ListSharesByGroup(ctx context.Context, groupID int) ([]shares.Share, error) {
+	return s.shares.ListByGroup(ctx, groupID)
 }
 
 func (s *Service) List(ctx context.Context) ([]Group, error) {
@@ -123,7 +129,24 @@ func (s *Service) handleGet(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
 		return
 	}
-	c.JSON(http.StatusOK, g)
+	shareList, err := s.ListSharesByGroup(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if shareList == nil {
+		shareList = []shares.Share{}
+	}
+	g.ShareCount = len(shareList)
+	c.JSON(http.StatusOK, gin.H{
+		"id":          g.ID,
+		"name":        g.Name,
+		"description": g.Description,
+		"share_count": g.ShareCount,
+		"created_at":  g.CreatedAt,
+		"updated_at":  g.UpdatedAt,
+		"shares":      shareList,
+	})
 }
 
 func (s *Service) handleCreate(c *gin.Context) {
@@ -165,7 +188,17 @@ func (s *Service) handleUpdate(c *gin.Context) {
 
 func (s *Service) handleDelete(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	_ = s.Delete(c.Request.Context(), id)
+	g, _ := s.Get(c.Request.Context(), id)
+	if g == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	if err := s.Delete(c.Request.Context(), id); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	uid := middleware.GetUserID(c)
+	_ = s.audit.Log(c.Request.Context(), "group.delete", "group", &id, &uid, middleware.GetUsername(c), nil)
 	c.Status(http.StatusNoContent)
 }
 

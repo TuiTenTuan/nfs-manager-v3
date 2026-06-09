@@ -72,7 +72,7 @@ func main() {
 	if err := shareSvc.SyncToOSOnStartup(ctx); err != nil {
 		log.Printf("WARN startup sync DB→OS: %v", err)
 	}
-	groupSvc := groups.New(pool, auditSvc)
+	groupSvc := groups.New(pool, auditSvc, shareSvc)
 	monSvc := monitor.New(pool, provider, shareSvc)
 	reportSvc := reports.New(pool)
 	fsSvc := filesystem.New(cfg.NFSRootAllowlist)

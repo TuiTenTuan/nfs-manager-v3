@@ -117,28 +117,33 @@
     @apply line-clamp-2 text-xs leading-5 text-muted-foreground;
   }
 
-  .scrollbar-themed {
+  .scrollbar-themed,
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto, textarea) {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
 
-  .scrollbar-themed::-webkit-scrollbar {
+  .scrollbar-themed::-webkit-scrollbar,
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto, textarea)::-webkit-scrollbar {
     width: 7px;
     height: 7px;
   }
 
-  .scrollbar-themed::-webkit-scrollbar-track {
+  .scrollbar-themed::-webkit-scrollbar-track,
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto, textarea)::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .scrollbar-themed::-webkit-scrollbar-thumb {
+  .scrollbar-themed::-webkit-scrollbar-thumb,
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto, textarea)::-webkit-scrollbar-thumb {
     background-color: hsl(var(--border));
     border: 2px solid transparent;
     border-radius: 9999px;
     background-clip: padding-box;
   }
 
-  .scrollbar-themed::-webkit-scrollbar-thumb:hover {
+  .scrollbar-themed::-webkit-scrollbar-thumb:hover,
+  :is(.overflow-y-auto, .overflow-x-auto, .overflow-auto, textarea)::-webkit-scrollbar-thumb:hover {
     background-color: hsl(var(--muted-foreground) / 0.45);
   }
 

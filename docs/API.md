@@ -8,7 +8,7 @@ Authentication: `Authorization: Bearer <access_token>` (except health and auth).
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/health` | `{ status, provider }` |
+| GET | `/health` | `{ status, provider, exportfs, nfs_server?, nfs_port? }` — `503` when exportfs check fails |
 | POST | `/auth/login` | `{ username, password }` → tokens |
 | POST | `/auth/refresh` | `{ refresh_token }` → tokens |
 
@@ -21,6 +21,7 @@ Authentication: `Authorization: Bearer <access_token>` (except health and auth).
 | POST | `/users/:id/password` | | Change password |
 | POST | `/users/me/password` | | Change own password |
 | GET/POST/PUT/DELETE | `/groups` | mutations | Group CRUD |
+| GET | `/groups/:id` | | Group detail with `shares: []` |
 | POST | `/groups/:id/bulk-enable` | ✓ | Enable all shares in group |
 | POST | `/groups/:id/bulk-disable` | ✓ | Disable all shares in group |
 | GET/POST/PUT/DELETE | `/shares` | mutations | Share CRUD |

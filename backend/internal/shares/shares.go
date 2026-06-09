@@ -46,6 +46,30 @@ func New(pool *pgxpool.Pool, au *audit.Service, p nfs.Provider, ex *exports.Serv
 	return &Service{pool: pool, audit: au, provider: p, exports: ex, allowlist: allowlist}
 }
 
+func (s *Service) ListByGroup(ctx context.Context, groupID int) ([]Share, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, name, path, group_id, config_mode, basic_json, advanced_json, raw_export,
+		        enabled, version, created_at::text, updated_at::text
+		 FROM nfs_shares WHERE group_id = $1 ORDER BY name`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var list []Share
+	for rows.Next() {
+		var sh Share
+		var raw *string
+		if err := rows.Scan(&sh.ID, &sh.Name, &sh.Path, &sh.GroupID, &sh.ConfigMode,
+			&sh.BasicJSON, &sh.AdvancedJSON, &raw, &sh.Enabled, &sh.Version, &sh.CreatedAt, &sh.UpdatedAt); err != nil {
+			return nil, err
+		}
+		sh.RawExport = raw
+		sh.PreviewLine = s.previewLine(sh)
+		list = append(list, sh)
+	}
+	return list, rows.Err()
+}
+
 func (s *Service) List(ctx context.Context) ([]Share, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, name, path, group_id, config_mode, basic_json, advanced_json, raw_export,
