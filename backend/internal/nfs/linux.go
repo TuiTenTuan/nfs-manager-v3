@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,10 +22,18 @@ func exportfsExitCode(err error) int {
 	return -1
 }
 
+type volumeSampleState struct {
+	readTotal  int64
+	writeTotal int64
+	lastTick   time.Time
+}
+
 type LinuxProvider struct {
-	allowlist    []string
-	managedPath  string
-	osExports    string
+	allowlist   []string
+	managedPath string
+	osExports   string
+	volMu       sync.Mutex
+	volumes     map[string]volumeSampleState
 }
 
 func NewLinuxProvider(allowlist []string, managedPath string) *LinuxProvider {
@@ -31,6 +41,7 @@ func NewLinuxProvider(allowlist []string, managedPath string) *LinuxProvider {
 		allowlist:   allowlist,
 		managedPath: managedPath,
 		osExports:   "/etc/exports",
+		volumes:     make(map[string]volumeSampleState),
 	}
 }
 
@@ -129,10 +140,73 @@ func (l *LinuxProvider) CollectShareMetrics(shareID int, path string) Metrics {
 	return l.collectMetrics(&sid, path)
 }
 
+func (l *LinuxProvider) volumeKey(shareID *int) string {
+	if shareID == nil {
+		return "global"
+	}
+	return strconv.Itoa(*shareID)
+}
+
+func parseNfsdIOCounters() (readTotal, writeTotal int64, ok bool) {
+	data, err := os.ReadFile("/proc/net/rpc/nfsd")
+	if err != nil {
+		return 0, 0, false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(line, "io ") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 3 {
+			continue
+		}
+		readTotal, err = strconv.ParseInt(fields[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		writeTotal, err = strconv.ParseInt(fields[2], 10, 64)
+		if err != nil {
+			continue
+		}
+		return readTotal, writeTotal, true
+	}
+	return 0, 0, false
+}
+
+func (l *LinuxProvider) setKernelTotals(key string, readTotal, writeTotal int64, now time.Time) (int64, int64) {
+	l.volMu.Lock()
+	defer l.volMu.Unlock()
+	state := l.volumes[key]
+	state.readTotal = readTotal
+	state.writeTotal = writeTotal
+	state.lastTick = now
+	l.volumes[key] = state
+	return readTotal, writeTotal
+}
+
+// Per-share totals are integrated from throughput rates when the kernel exposes no per-export byte counters.
+func (l *LinuxProvider) integrateTotals(key string, readRate, writeRate int64, now time.Time) (int64, int64) {
+	l.volMu.Lock()
+	defer l.volMu.Unlock()
+
+	state := l.volumes[key]
+	if !state.lastTick.IsZero() {
+		elapsed := now.Sub(state.lastTick).Seconds()
+		if elapsed > 0 {
+			state.readTotal += int64(float64(readRate) * elapsed)
+			state.writeTotal += int64(float64(writeRate) * elapsed)
+		}
+	}
+	state.lastTick = now
+	l.volumes[key] = state
+	return state.readTotal, state.writeTotal
+}
+
 func (l *LinuxProvider) collectMetrics(shareID *int, path string) Metrics {
+	now := time.Now()
 	m := Metrics{
 		ShareID:   shareID,
-		Timestamp: time.Now(),
+		Timestamp: now,
 		Provider:  "linux",
 		Clients:   []ClientInfo{},
 	}
@@ -165,5 +239,18 @@ func (l *LinuxProvider) collectMetrics(shareID *int, path string) Metrics {
 		m.BytesReadPerSec = int64(m.ActiveConnections) * 1024
 	}
 	m.BytesWritePerSec = m.BytesReadPerSec / 2
+
+	key := l.volumeKey(shareID)
+	if shareID == nil {
+		if readTotal, writeTotal, ok := parseNfsdIOCounters(); ok {
+			m.BytesReadTotal, m.BytesWriteTotal = l.setKernelTotals(key, readTotal, writeTotal, now)
+		} else {
+			m.BytesReadTotal, m.BytesWriteTotal = l.integrateTotals(key, m.BytesReadPerSec, m.BytesWritePerSec, now)
+		}
+	} else {
+		_ = path
+		m.BytesReadTotal, m.BytesWriteTotal = l.integrateTotals(key, m.BytesReadPerSec, m.BytesWritePerSec, now)
+	}
+
 	return m
 }

@@ -29,9 +29,9 @@ func New(pool *pgxpool.Pool, p nfs.Provider, sh *shares.Service) *Service {
 func (s *Service) StoreSample(ctx context.Context, m nfs.Metrics) error {
 	clients, _ := json.Marshal(m.Clients)
 	_, err := s.pool.Exec(ctx,
-		`INSERT INTO metrics (share_id, bytes_read_per_sec, bytes_write_per_sec, ops_per_sec, active_connections, clients, provider)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-		m.ShareID, m.BytesReadPerSec, m.BytesWritePerSec, m.OpsPerSec, m.ActiveConnections, clients, m.Provider)
+		`INSERT INTO metrics (share_id, bytes_read_per_sec, bytes_write_per_sec, bytes_read_total, bytes_write_total, ops_per_sec, active_connections, clients, provider)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		m.ShareID, m.BytesReadPerSec, m.BytesWritePerSec, m.BytesReadTotal, m.BytesWriteTotal, m.OpsPerSec, m.ActiveConnections, clients, m.Provider)
 	return err
 }
 

@@ -23,16 +23,20 @@ type ReportPoint struct {
 	ShareID           *int    `json:"share_id,omitempty"`
 	AvgRead           float64 `json:"avg_bytes_read_per_sec"`
 	AvgWrite          float64 `json:"avg_bytes_write_per_sec"`
+	TotalBytesRead    int64   `json:"total_bytes_read"`
+	TotalBytesWrite   int64   `json:"total_bytes_write"`
 	AvgOps            float64 `json:"avg_ops_per_sec"`
 	MaxConnections    int     `json:"max_active_connections"`
 	SampleCount       int     `json:"sample_count"`
 }
 
 type TimeseriesPoint struct {
-	RecordedAt  time.Time `json:"recorded_at"`
-	AvgRead     float64   `json:"avg_bytes_read_per_sec"`
-	AvgWrite    float64   `json:"avg_bytes_write_per_sec"`
-	SampleCount int       `json:"sample_count"`
+	RecordedAt       time.Time `json:"recorded_at"`
+	AvgRead          float64   `json:"avg_bytes_read_per_sec"`
+	AvgWrite         float64   `json:"avg_bytes_write_per_sec"`
+	BytesReadVolume  int64     `json:"bytes_read_volume"`
+	BytesWriteVolume int64     `json:"bytes_write_volume"`
+	SampleCount      int       `json:"sample_count"`
 }
 
 func bucketInterval(period string) string {
@@ -67,6 +71,16 @@ func (s *Service) Get(ctx context.Context, period string, shareID *int) ([]Repor
 	q := `SELECT share_id,
 		COALESCE(AVG(bytes_read_per_sec),0),
 		COALESCE(AVG(bytes_write_per_sec),0),
+		CASE
+			WHEN MAX(bytes_read_total) > MIN(bytes_read_total)
+				THEN MAX(bytes_read_total) - MIN(bytes_read_total)
+			ELSE COALESCE(SUM(bytes_read_per_sec) * 1.5, 0)::bigint
+		END,
+		CASE
+			WHEN MAX(bytes_write_total) > MIN(bytes_write_total)
+				THEN MAX(bytes_write_total) - MIN(bytes_write_total)
+			ELSE COALESCE(SUM(bytes_write_per_sec) * 1.5, 0)::bigint
+		END,
 		COALESCE(AVG(ops_per_sec),0),
 		COALESCE(MAX(active_connections),0),
 		COUNT(*)
@@ -87,7 +101,7 @@ func (s *Service) Get(ctx context.Context, period string, shareID *int) ([]Repor
 	for rows.Next() {
 		var p ReportPoint
 		p.Period = period
-		if err := rows.Scan(&p.ShareID, &p.AvgRead, &p.AvgWrite, &p.AvgOps, &p.MaxConnections, &p.SampleCount); err != nil {
+		if err := rows.Scan(&p.ShareID, &p.AvgRead, &p.AvgWrite, &p.TotalBytesRead, &p.TotalBytesWrite, &p.AvgOps, &p.MaxConnections, &p.SampleCount); err != nil {
 			return nil, err
 		}
 		points = append(points, p)
@@ -104,6 +118,16 @@ func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int
 	q := `SELECT time_bucket($1::interval, recorded_at) AS bucket,
 		COALESCE(AVG(bytes_read_per_sec), 0),
 		COALESCE(AVG(bytes_write_per_sec), 0),
+		CASE
+			WHEN MAX(bytes_read_total) > MIN(bytes_read_total)
+				THEN MAX(bytes_read_total) - MIN(bytes_read_total)
+			ELSE COALESCE(SUM(bytes_read_per_sec) * 1.5, 0)::bigint
+		END,
+		CASE
+			WHEN MAX(bytes_write_total) > MIN(bytes_write_total)
+				THEN MAX(bytes_write_total) - MIN(bytes_write_total)
+			ELSE COALESCE(SUM(bytes_write_per_sec) * 1.5, 0)::bigint
+		END,
 		COUNT(*)::int
 		FROM metrics
 		WHERE recorded_at >= $2`
@@ -125,7 +149,7 @@ func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int
 	var points []TimeseriesPoint
 	for rows.Next() {
 		var p TimeseriesPoint
-		if err := rows.Scan(&p.RecordedAt, &p.AvgRead, &p.AvgWrite, &p.SampleCount); err != nil {
+		if err := rows.Scan(&p.RecordedAt, &p.AvgRead, &p.AvgWrite, &p.BytesReadVolume, &p.BytesWriteVolume, &p.SampleCount); err != nil {
 			return nil, err
 		}
 		points = append(points, p)

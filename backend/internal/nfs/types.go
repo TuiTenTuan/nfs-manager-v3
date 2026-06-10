@@ -18,6 +18,8 @@ type Metrics struct {
 	ShareID            *int         `json:"share_id,omitempty"`
 	BytesReadPerSec    int64        `json:"bytes_read_per_sec"`
 	BytesWritePerSec   int64        `json:"bytes_write_per_sec"`
+	BytesReadTotal     int64        `json:"bytes_read_total"`
+	BytesWriteTotal    int64        `json:"bytes_write_total"`
 	OpsPerSec          float64      `json:"ops_per_sec"`
 	ActiveConnections  int          `json:"active_connections"`
 	Clients            []ClientInfo `json:"clients"`

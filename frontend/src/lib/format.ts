@@ -90,3 +90,65 @@ export function formatKilobytesPerSec(bytesPerSec: number): string {
 export function formatOpsPerSec(ops: number): string {
   return `${formatInteger(ops)}/s`;
 }
+
+export type DataVolumeUnit = "B" | "KB" | "MB" | "GB" | "TB";
+
+function pickDataVolumeUnit(bytes: number): { unit: DataVolumeUnit; divisor: number } {
+  if (bytes >= 1024 ** 4) {
+    return { unit: "TB", divisor: 1024 ** 4 };
+  }
+  if (bytes >= 1024 ** 3) {
+    return { unit: "GB", divisor: 1024 ** 3 };
+  }
+  if (bytes >= 1024 ** 2) {
+    return { unit: "MB", divisor: 1024 ** 2 };
+  }
+  if (bytes >= 1024) {
+    return { unit: "KB", divisor: 1024 };
+  }
+  return { unit: "B", divisor: 1 };
+}
+
+function formatDataVolumeScaledValue(
+  bytes: number,
+  unit: DataVolumeUnit,
+  divisor: number,
+  fractionDigits?: number
+): string {
+  const value = bytes / divisor;
+  if (fractionDigits != null) {
+    return formatDecimalFixed(value, fractionDigits);
+  }
+  if (unit === "TB" || unit === "GB") {
+    return formatDecimal(value, value >= 10 ? 0 : 1);
+  }
+  if (unit === "MB") {
+    return formatDecimal(value, value >= 100 ? 0 : 1);
+  }
+  if (unit === "KB") {
+    return formatDecimal(value, value >= 100 ? 0 : 1);
+  }
+  return formatInteger(value);
+}
+
+export function formatDataVolumeParts(
+  bytes: number,
+  fractionDigits?: number
+): { value: string; unit: DataVolumeUnit } {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return {
+      value: fractionDigits != null ? formatDecimalFixed(0, fractionDigits) : "0",
+      unit: "B",
+    };
+  }
+  const { unit, divisor } = pickDataVolumeUnit(bytes);
+  return {
+    value: formatDataVolumeScaledValue(bytes, unit, divisor, fractionDigits),
+    unit,
+  };
+}
+
+export function formatDataVolume(bytes: number): string {
+  const { value, unit } = formatDataVolumeParts(bytes);
+  return `${value} ${unit}`;
+}

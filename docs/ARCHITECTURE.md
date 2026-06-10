@@ -51,7 +51,7 @@ Selected when `NFS_PROVIDER=mock` or OS is not Linux (unless overridden).
 
 ## Data retention
 
-`metrics` TimescaleDB hypertable; background collector every `METRICS_COLLECT_INTERVAL` (default 1.5s). Rows older than `METRICS_RETENTION_DAYS` (default 30) deleted on startup and every 6h.
+`metrics` TimescaleDB hypertable; background collector every `METRICS_COLLECT_INTERVAL` (default 1.5s). Each sample stores throughput rates plus cumulative `bytes_read_total` / `bytes_write_total` counters from the NFS provider. Reports aggregate period volume (`total_bytes_read`, `total_bytes_write`) and bucketed volume timeseries (`bytes_read_volume`, `bytes_write_volume`) from counter deltas. Rows older than `METRICS_RETENTION_DAYS` (default 30) deleted on startup and every 6h.
 
 ## Frontend
 
