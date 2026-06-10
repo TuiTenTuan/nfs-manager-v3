@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ChartLegendStrip, throughputLegendItems } from "@/components/charts/chart-legend";
 import { ReportThroughputLineChart } from "@/components/charts/report-throughput-line-chart";
@@ -25,7 +25,9 @@ import {
   formatSpeed,
 } from "@/lib/format";
 import { formatThroughputPartsFromBytes } from "@/lib/chart-throughput";
-import { useChartColors } from "@/lib/chart-theme";
+import { shareChartColor, useChartColors } from "@/lib/chart-theme";
+import { buildShareVolumeChart } from "@/lib/chart-volume";
+import { useTheme } from "@/lib/theme";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/layout/empty-state";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,40 +52,60 @@ type Point = {
   sample_count: number;
 };
 
-type TimeseriesPoint = {
+type GlobalTimeseriesPoint = {
   recorded_at: string;
   avg_bytes_read_per_sec: number;
   avg_bytes_write_per_sec: number;
+  sample_count: number;
+};
+
+type ShareVolumeTimeseriesPoint = {
+  recorded_at: string;
+  share_id: number;
   bytes_read_volume: number;
   bytes_write_volume: number;
   sample_count: number;
 };
 
+type Share = { id: number; name: string };
+
 const periods = ["day", "week", "month", "year"] as const;
 
 export default function ReportsPage() {
   const colors = useChartColors();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [period, setPeriod] = useState<(typeof periods)[number]>("day");
   const [points, setPoints] = useState<Point[] | null>(null);
-  const [timeseries, setTimeseries] = useState<TimeseriesPoint[] | null>(null);
+  const [timeseries, setTimeseries] = useState<GlobalTimeseriesPoint[] | null>(null);
+  const [volumeTimeseries, setVolumeTimeseries] = useState<ShareVolumeTimeseriesPoint[] | null>(null);
+  const [shares, setShares] = useState<Share[]>([]);
 
   useEffect(() => {
     let active = true;
     setPoints(null);
     setTimeseries(null);
+    setVolumeTimeseries(null);
     Promise.all([
       api<{ points: Point[] }>(`/reports?period=${period}`),
-      api<{ points: TimeseriesPoint[] }>(`/reports/timeseries?period=${period}`),
+      api<{ points: GlobalTimeseriesPoint[] }>(`/reports/timeseries?period=${period}`),
+      api<{ points: ShareVolumeTimeseriesPoint[] }>(
+        `/reports/timeseries?period=${period}&breakdown=share`
+      ),
+      api<Share[] | null>("/shares"),
     ])
-      .then(([summary, series]) => {
+      .then(([summary, series, volumeSeries, shareList]) => {
         if (!active) return;
         setPoints(summary.points);
         setTimeseries(series.points);
+        setVolumeTimeseries(volumeSeries.points);
+        setShares(Array.isArray(shareList) ? shareList : []);
       })
       .catch(() => {
         if (active) {
           setPoints([]);
           setTimeseries([]);
+          setVolumeTimeseries([]);
         }
       });
     return () => {
@@ -121,18 +143,20 @@ export default function ReportsPage() {
       write: Math.round(p.avg_bytes_write_per_sec / 1024),
     }));
 
-  const volumeTimeseriesData = (timeseries ?? [])
-    .filter((p) => p.sample_count > 0)
-    .map((p) => ({
-      recorded_at: p.recorded_at,
-      read: p.bytes_read_volume,
-      write: p.bytes_write_volume,
-    }));
+  const volumeTimeseriesChart = useMemo(() => {
+    const shareNameById = new Map(shares.map((share) => [share.id, share.name]));
+    return buildShareVolumeChart(
+      volumeTimeseries ?? [],
+      (shareId) => shareNameById.get(shareId) ?? `Share ${shareId}`,
+      (index) => shareChartColor(index, isDark)
+    );
+  }, [volumeTimeseries, shares, isDark]);
 
   const timeseriesScale = useThroughputScale(timeseriesChartData);
-  const volumeTimeseriesScale = useVolumeScale(volumeTimeseriesData);
+  const volumeTimeseriesScale = useVolumeScale(volumeTimeseriesChart.data);
   const hasTimeseries = timeseriesChartData.length > 0;
-  const hasVolumeTimeseries = volumeTimeseriesData.length > 0;
+  const hasVolumeTimeseries =
+    volumeTimeseriesChart.data.length > 0 && volumeTimeseriesChart.series.length > 0;
 
   return (
     <div>
@@ -242,11 +266,12 @@ export default function ReportsPage() {
           <div className="rounded-lg border mb-6">
             <div className="px-4 py-3 border-b">
               <h2 className="text-sm font-semibold">Data volume over time</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Global read and write volume per time bucket</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Read and write volume per share for each time bucket</p>
             </div>
             {hasVolumeTimeseries ? (
               <ReportVolumeLineChart
-                data={volumeTimeseriesData}
+                data={volumeTimeseriesChart.data}
+                series={volumeTimeseriesChart.series}
                 colors={colors}
                 scale={volumeTimeseriesScale}
                 period={period}

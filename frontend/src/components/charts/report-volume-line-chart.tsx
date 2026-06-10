@@ -1,16 +1,15 @@
 "use client";
 
-import { useId } from "react";
 import {
-  Area,
-  AreaChart,
   CartesianGrid,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { ChartLegendStrip, throughputLegendItems } from "@/components/charts/chart-legend";
+import { ChartLegendStrip, type ChartLegendItem } from "@/components/charts/chart-legend";
 import {
   VolumeTooltipContent,
   getVolumeYAxisProps,
@@ -20,27 +19,32 @@ import {
   formatReportTimeseriesLabel,
   formatReportTimeseriesTooltip,
   type ReportPeriod,
+  type VolumeChartSeries,
   type VolumeScale,
 } from "@/lib/chart-volume";
 import { CHART_WRITE_LINE_DASH } from "@/lib/chart-theme";
 
-export type ReportVolumePoint = {
-  recorded_at: string;
-  read: number;
-  write: number;
-};
+export type ReportVolumePoint = Record<string, string | number>;
 
 type ChartColors = {
-  read: string;
-  write: string;
   grid: string;
   text: string;
   tooltipBg: string;
   tooltipBorder: string;
 };
 
+function volumeLegendItems(series: VolumeChartSeries[]): ChartLegendItem[] {
+  return series.map((item) => ({
+    label: item.name,
+    color: item.color,
+    variant: "line" as const,
+    dashed: item.dashed,
+  }));
+}
+
 export function ReportVolumeLineChart({
   data,
+  series,
   colors,
   scale,
   period,
@@ -48,31 +52,18 @@ export function ReportVolumeLineChart({
   tickFontSize = 11,
 }: {
   data: ReportVolumePoint[];
+  series: VolumeChartSeries[];
   colors: ChartColors;
   scale: VolumeScale;
   period: ReportPeriod;
   className?: string;
   tickFontSize?: number;
 }) {
-  const uid = useId().replace(/:/g, "");
-  const readGradientId = `volume-read-${uid}`;
-  const writeGradientId = `volume-write-${uid}`;
-
   return (
     <div className={className}>
       <div className="min-h-0 flex-1">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={volumeChartMargin(scale)}>
-            <defs>
-              <linearGradient id={readGradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={colors.read} stopOpacity={0.22} />
-                <stop offset="100%" stopColor={colors.read} stopOpacity={0.02} />
-              </linearGradient>
-              <linearGradient id={writeGradientId} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={colors.write} stopOpacity={0.16} />
-                <stop offset="100%" stopColor={colors.write} stopOpacity={0.02} />
-              </linearGradient>
-            </defs>
+          <LineChart data={data} margin={volumeChartMargin(scale)}>
             <YAxis {...getVolumeYAxisProps(scale, colors, tickFontSize)} />
             <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" />
             <XAxis
@@ -88,35 +79,26 @@ export function ReportVolumeLineChart({
                 <VolumeTooltipContent
                   colors={colors}
                   scale={scale}
-                  nameMap={{ read: "Read", write: "Write" }}
                 />
               }
             />
-            <Area
-              type="monotone"
-              dataKey="write"
-              name="Write"
-              stroke={colors.write}
-              strokeWidth={2}
-              strokeDasharray={CHART_WRITE_LINE_DASH}
-              fill={`url(#${writeGradientId})`}
-              dot={false}
-              activeDot={{ r: 3, strokeWidth: 0 }}
-            />
-            <Area
-              type="monotone"
-              dataKey="read"
-              name="Read"
-              stroke={colors.read}
-              strokeWidth={2}
-              fill={`url(#${readGradientId})`}
-              dot={false}
-              activeDot={{ r: 3, strokeWidth: 0 }}
-            />
-          </AreaChart>
+            {series.map((item) => (
+              <Line
+                key={item.dataKey}
+                type="monotone"
+                dataKey={item.dataKey}
+                name={item.name}
+                stroke={item.color}
+                strokeWidth={2}
+                strokeDasharray={item.dashed ? CHART_WRITE_LINE_DASH : undefined}
+                dot={false}
+                activeDot={{ r: 3, strokeWidth: 0 }}
+              />
+            ))}
+          </LineChart>
         </ResponsiveContainer>
       </div>
-      <ChartLegendStrip items={throughputLegendItems(colors, "line")} />
+      <ChartLegendStrip items={volumeLegendItems(series)} />
     </div>
   );
 }

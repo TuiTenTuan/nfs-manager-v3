@@ -5,6 +5,16 @@ import { useTheme } from "@/lib/theme";
 /** Dotted stroke for write throughput lines (read stays solid). */
 export const CHART_WRITE_LINE_DASH = "0 6";
 
+const SHARE_CHART_HUE_OFFSET = 47;
+
+/** Distinct hue per share index; stable across light/dark themes. */
+export function shareChartColor(index: number, isDark: boolean): string {
+  const hue = (index * SHARE_CHART_HUE_OFFSET) % 360;
+  const saturation = isDark ? 72 : 78;
+  const lightness = isDark ? 58 : 46;
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
 export function useChartColors() {
   const { theme } = useTheme();
   const isDark = theme === "dark";

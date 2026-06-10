@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ElementType } from "react";
+import { useEffect, useMemo, useRef, useState, type ElementType } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,7 +12,9 @@ import {
 } from "@phosphor-icons/react";
 import { toast } from "@/lib/toast";
 import { api, getHealth, type Health } from "@/lib/api";
-import { useChartColors } from "@/lib/chart-theme";
+import { shareChartColor, useChartColors } from "@/lib/chart-theme";
+import { buildShareVolumeChart } from "@/lib/chart-volume";
+import { useTheme } from "@/lib/theme";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +53,7 @@ type Metrics = {
 
 type TimeseriesPoint = {
   recorded_at: string;
+  share_id: number;
   bytes_read_volume: number;
   bytes_write_volume: number;
   sample_count: number;
@@ -123,6 +126,8 @@ function MetricCard({
 
 export default function DashboardPage() {
   const colors = useChartColors();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [health, setHealth] = useState<Health | null>(null);
   const [shares, setShares] = useState<Share[] | null>(null);
   const [audit, setAudit] = useState<Audit[] | null>(null);
@@ -158,7 +163,7 @@ export default function DashboardPage() {
         setAudit([]);
       });
 
-    api<{ points: TimeseriesPoint[] }>("/reports/timeseries?period=day")
+    api<{ points: TimeseriesPoint[] }>("/reports/timeseries?period=day&breakdown=share")
       .then((r) => setTimeseries(r.points ?? []))
       .catch((err) => {
         setVolumeError(err instanceof Error ? err.message : "Failed to load volume data");
@@ -210,16 +215,17 @@ export default function DashboardPage() {
     -maxHistoryPoints(throughputWindowSeconds, POLL_MS)
   );
 
-  const volumeChartData = (timeseries ?? [])
-    .filter((p) => p.sample_count > 0)
-    .map((p) => ({
-      recorded_at: p.recorded_at,
-      read: p.bytes_read_volume,
-      write: p.bytes_write_volume,
-    }));
+  const volumeChart = useMemo(() => {
+    const shareNameById = new Map((shares ?? []).map((share) => [share.id, share.name]));
+    return buildShareVolumeChart(
+      timeseries ?? [],
+      (shareId) => shareNameById.get(shareId) ?? `Share ${shareId}`,
+      (index) => shareChartColor(index, isDark)
+    );
+  }, [timeseries, shares, isDark]);
 
-  const volumeScale = useVolumeScale(volumeChartData);
-  const hasVolumeData = volumeChartData.length > 0;
+  const volumeScale = useVolumeScale(volumeChart.data);
+  const hasVolumeData = volumeChart.data.length > 0 && volumeChart.series.length > 0;
 
   const enabled = shares?.filter((s) => s.enabled).length ?? 0;
   const sharesLoading = shares === null;
@@ -359,7 +365,7 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Global data consumed today</CardTitle>
+            <CardTitle className="text-sm font-semibold">Data volume by share today</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex h-56 flex-col">
@@ -378,7 +384,8 @@ export default function DashboardPage() {
                 </div>
               ) : (
                 <ReportVolumeLineChart
-                  data={volumeChartData}
+                  data={volumeChart.data}
+                  series={volumeChart.series}
                   colors={colors}
                   scale={volumeScale}
                   period="day"

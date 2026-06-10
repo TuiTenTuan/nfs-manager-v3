@@ -32,6 +32,7 @@ type ReportPoint struct {
 
 type TimeseriesPoint struct {
 	RecordedAt       time.Time `json:"recorded_at"`
+	ShareID          *int      `json:"share_id,omitempty"`
 	AvgRead          float64   `json:"avg_bytes_read_per_sec"`
 	AvgWrite         float64   `json:"avg_bytes_write_per_sec"`
 	BytesReadVolume  int64     `json:"bytes_read_volume"`
@@ -112,10 +113,14 @@ func (s *Service) Get(ctx context.Context, period string, shareID *int) ([]Repor
 	return points, rows.Err()
 }
 
-func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int) ([]TimeseriesPoint, error) {
+func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int, byShare bool) ([]TimeseriesPoint, error) {
 	since := periodStart(period)
 	bucket := bucketInterval(period)
-	q := `SELECT time_bucket($1::interval, recorded_at) AS bucket,
+	q := `SELECT time_bucket($1::interval, recorded_at) AS bucket`
+	if byShare {
+		q += `, share_id`
+	}
+	q += `,
 		COALESCE(AVG(bytes_read_per_sec), 0),
 		COALESCE(AVG(bytes_write_per_sec), 0),
 		CASE
@@ -132,13 +137,17 @@ func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int
 		FROM metrics
 		WHERE recorded_at >= $2`
 	args := []any{bucket, since}
-	if shareID != nil {
+	if byShare {
+		q += ` AND share_id IS NOT NULL`
+		q += ` GROUP BY bucket, share_id ORDER BY bucket ASC, share_id ASC`
+	} else if shareID != nil {
 		q += ` AND share_id = $3`
 		args = append(args, *shareID)
+		q += ` GROUP BY bucket ORDER BY bucket ASC`
 	} else {
 		q += ` AND share_id IS NULL`
+		q += ` GROUP BY bucket ORDER BY bucket ASC`
 	}
-	q += ` GROUP BY bucket ORDER BY bucket ASC`
 
 	rows, err := s.pool.Query(ctx, q, args...)
 	if err != nil {
@@ -149,7 +158,13 @@ func (s *Service) GetTimeseries(ctx context.Context, period string, shareID *int
 	var points []TimeseriesPoint
 	for rows.Next() {
 		var p TimeseriesPoint
-		if err := rows.Scan(&p.RecordedAt, &p.AvgRead, &p.AvgWrite, &p.BytesReadVolume, &p.BytesWriteVolume, &p.SampleCount); err != nil {
+		if byShare {
+			var shareIDVal int
+			if err := rows.Scan(&p.RecordedAt, &shareIDVal, &p.AvgRead, &p.AvgWrite, &p.BytesReadVolume, &p.BytesWriteVolume, &p.SampleCount); err != nil {
+				return nil, err
+			}
+			p.ShareID = &shareIDVal
+		} else if err := rows.Scan(&p.RecordedAt, &p.AvgRead, &p.AvgWrite, &p.BytesReadVolume, &p.BytesWriteVolume, &p.SampleCount); err != nil {
 			return nil, err
 		}
 		points = append(points, p)
@@ -168,6 +183,11 @@ func (s *Service) handleTimeseries(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid period"})
 		return
 	}
+	breakdown := c.Query("breakdown")
+	if breakdown != "" && breakdown != "share" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid breakdown"})
+		return
+	}
 	var shareID *int
 	if raw := c.Query("share_id"); raw != "" {
 		id, err := strconv.Atoi(raw)
@@ -177,7 +197,11 @@ func (s *Service) handleTimeseries(c *gin.Context) {
 		}
 		shareID = &id
 	}
-	points, err := s.GetTimeseries(c.Request.Context(), period, shareID)
+	if breakdown == "share" && shareID != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "share_id and breakdown=share are mutually exclusive"})
+		return
+	}
+	points, err := s.GetTimeseries(c.Request.Context(), period, shareID, breakdown == "share")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

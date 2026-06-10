@@ -11,12 +11,75 @@ export type VolumeScale = {
   maxBytes: number;
 };
 
-export function maxVolumeBytes(data: Array<{ read?: number; write?: number }>): number {
+export function maxVolumeBytes(data: Array<Record<string, unknown>>): number {
   let max = 0;
   for (const row of data) {
-    max = Math.max(max, row.read ?? 0, row.write ?? 0);
+    for (const [key, value] of Object.entries(row)) {
+      if (key === "recorded_at" || typeof value !== "number") continue;
+      max = Math.max(max, value);
+    }
   }
   return max;
+}
+
+export type ShareVolumeTimeseriesPoint = {
+  recorded_at: string;
+  share_id: number;
+  bytes_read_volume: number;
+  bytes_write_volume: number;
+  sample_count: number;
+};
+
+export type VolumeChartSeries = {
+  dataKey: string;
+  name: string;
+  color: string;
+  dashed?: boolean;
+};
+
+export function buildShareVolumeChart(
+  points: ShareVolumeTimeseriesPoint[],
+  shareLabel: (shareId: number) => string,
+  shareColor: (index: number) => string
+): { data: Array<Record<string, string | number>>; series: VolumeChartSeries[] } {
+  const shareIds = [...new Set(points.map((p) => p.share_id))].sort((a, b) => a - b);
+  const buckets = new Map<string, Record<string, string | number>>();
+
+  for (const point of points) {
+    if (point.sample_count <= 0) continue;
+    const bucketKey = point.recorded_at;
+    if (!buckets.has(bucketKey)) {
+      buckets.set(bucketKey, { recorded_at: bucketKey });
+    }
+    const row = buckets.get(bucketKey)!;
+    row[`share_${point.share_id}_read`] = point.bytes_read_volume;
+    row[`share_${point.share_id}_write`] = point.bytes_write_volume;
+  }
+
+  const data = [...buckets.values()].sort((a, b) =>
+    String(a.recorded_at).localeCompare(String(b.recorded_at))
+  );
+
+  const series = shareIds.flatMap((shareId, index) => {
+    const label = shareLabel(shareId);
+    const color = shareColor(index);
+    return [
+      {
+        dataKey: `share_${shareId}_read`,
+        name: `${label} read`,
+        color,
+        dashed: false,
+      },
+      {
+        dataKey: `share_${shareId}_write`,
+        name: `${label} write`,
+        color,
+        dashed: true,
+      },
+    ];
+  });
+
+  return { data, series };
 }
 
 export function pickVolumeScale(maxBytes: number): VolumeScale {

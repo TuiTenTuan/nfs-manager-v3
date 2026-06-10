@@ -12,7 +12,7 @@ import {
   volumeYTicks,
 } from "@/lib/chart-volume";
 
-export function useVolumeScale(data: Array<{ read?: number; write?: number }>): VolumeScale {
+export function useVolumeScale(data: Array<Record<string, unknown>>): VolumeScale {
   const maxBytes = maxVolumeBytes(data);
   return useMemo(() => pickVolumeScale(maxBytes), [maxBytes]);
 }
