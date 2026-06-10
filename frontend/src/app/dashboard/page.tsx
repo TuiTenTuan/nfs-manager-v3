@@ -10,14 +10,6 @@ import {
   Pulse,
   Users,
 } from "@phosphor-icons/react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-} from "recharts";
 import { toast } from "@/lib/toast";
 import { api, getHealth, type Health } from "@/lib/api";
 import { useChartColors } from "@/lib/chart-theme";
@@ -27,13 +19,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatInteger } from "@/lib/format";
 import { formatThroughputPartsFromBytes } from "@/lib/chart-throughput";
-import { ChartLegendStrip, throughputLegendItems } from "@/components/charts/chart-legend";
 import { LiveThroughputLineChart } from "@/components/charts/live-throughput-line-chart";
-import {
-  ThroughputTooltipContent,
-  ThroughputYAxis,
-  useThroughputScale,
-} from "@/components/charts/throughput-chart-parts";
+import { ReportVolumeLineChart } from "@/components/charts/report-volume-line-chart";
+import { useThroughputScale } from "@/components/charts/throughput-chart-parts";
+import { useVolumeScale } from "@/components/charts/volume-chart-parts";
 import {
   DEFAULT_THROUGHPUT_WINDOW_SECONDS,
   MAX_THROUGHPUT_WINDOW_SECONDS,
@@ -60,12 +49,10 @@ type Metrics = {
   timestamp: string;
 };
 
-type ReportPoint = {
-  share_id?: number;
-  avg_bytes_read_per_sec: number;
-  avg_bytes_write_per_sec: number;
-  avg_ops_per_sec: number;
-  max_active_connections: number;
+type TimeseriesPoint = {
+  recorded_at: string;
+  bytes_read_volume: number;
+  bytes_write_volume: number;
   sample_count: number;
 };
 
@@ -139,13 +126,13 @@ export default function DashboardPage() {
   const [health, setHealth] = useState<Health | null>(null);
   const [shares, setShares] = useState<Share[] | null>(null);
   const [audit, setAudit] = useState<Audit[] | null>(null);
-  const [reports, setReports] = useState<ReportPoint[] | null>(null);
+  const [timeseries, setTimeseries] = useState<TimeseriesPoint[] | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [healthError, setHealthError] = useState("");
   const [sharesError, setSharesError] = useState("");
   const [auditError, setAuditError] = useState("");
-  const [reportsError, setReportsError] = useState("");
+  const [volumeError, setVolumeError] = useState("");
   const [metricsError, setMetricsError] = useState("");
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [throughputWindowSeconds, setThroughputWindowSeconds] = useState(DEFAULT_THROUGHPUT_WINDOW_SECONDS);
@@ -171,11 +158,11 @@ export default function DashboardPage() {
         setAudit([]);
       });
 
-    api<{ points: ReportPoint[] }>("/reports?period=day")
-      .then((r) => setReports(r.points ?? []))
+    api<{ points: TimeseriesPoint[] }>("/reports/timeseries?period=day")
+      .then((r) => setTimeseries(r.points ?? []))
       .catch((err) => {
-        setReportsError(err instanceof Error ? err.message : "Failed to load reports");
-        setReports([]);
+        setVolumeError(err instanceof Error ? err.message : "Failed to load volume data");
+        setTimeseries([]);
       });
   }, []);
 
@@ -223,21 +210,21 @@ export default function DashboardPage() {
     -maxHistoryPoints(throughputWindowSeconds, POLL_MS)
   );
 
-  const reportChartData = (reports ?? [])
-    .filter((p) => p.sample_count > 0 && p.share_id != null)
+  const volumeChartData = (timeseries ?? [])
+    .filter((p) => p.sample_count > 0)
     .map((p) => ({
-      name: shares?.find((s) => s.id === p.share_id)?.name ?? `Share ${p.share_id}`,
-      read: Math.round(p.avg_bytes_read_per_sec / 1024),
-      write: Math.round(p.avg_bytes_write_per_sec / 1024),
+      recorded_at: p.recorded_at,
+      read: p.bytes_read_volume,
+      write: p.bytes_write_volume,
     }));
 
-  const historyScale = useThroughputScale(visibleHistory);
-  const reportScale = useThroughputScale(reportChartData);
+  const volumeScale = useVolumeScale(volumeChartData);
+  const hasVolumeData = volumeChartData.length > 0;
 
   const enabled = shares?.filter((s) => s.enabled).length ?? 0;
   const sharesLoading = shares === null;
   const clientCount = metrics?.clients?.length ?? 0;
-  const hasReportData = reportChartData.length > 0;
+  const historyScale = useThroughputScale(visibleHistory);
 
   return (
     <div>
@@ -372,47 +359,32 @@ export default function DashboardPage() {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold">Throughput by share today</CardTitle>
+            <CardTitle className="text-sm font-semibold">Global data consumed today</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex h-56 flex-col">
-              {reports === null ? (
+              {timeseries === null ? (
                 <Skeleton className="h-full w-full" />
-              ) : reportsError ? (
+              ) : volumeError ? (
                 <div className="flex h-full items-center justify-center text-sm text-destructive">
-                  {reportsError}
+                  {volumeError}
                 </div>
-              ) : !hasReportData ? (
+              ) : !hasVolumeData ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-center px-4">
-                  <p className="text-sm text-muted-foreground">No sample data for today yet.</p>
+                  <p className="text-sm text-muted-foreground">No volume samples for today yet.</p>
                   <p className="text-xs text-muted-foreground">
                     Metrics are collected when this dashboard or a share monitor page is open.
                   </p>
                 </div>
               ) : (
-                <>
-                  <div className="min-h-0 flex-1">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={reportChartData} barGap={4} margin={{ top: 8, right: 12, left: 4, bottom: 4 }}>
-                    <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: colors.text }} />
-                    <ThroughputYAxis scale={reportScale} colors={colors} />
-                    <Tooltip
-                      content={
-                        <ThroughputTooltipContent
-                          colors={colors}
-                          scale={reportScale}
-                          nameMap={{ read: "Read", write: "Write" }}
-                        />
-                      }
-                    />
-                    <Bar dataKey="read" fill={colors.read} name="Read" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="write" fill={colors.write} name="Write" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <ChartLegendStrip items={throughputLegendItems(colors, "bar")} />
-                </>
+                <ReportVolumeLineChart
+                  data={volumeChartData}
+                  colors={colors}
+                  scale={volumeScale}
+                  period="day"
+                  className="flex h-full min-h-0 flex-col"
+                  tickFontSize={10}
+                />
               )}
             </div>
           </CardContent>

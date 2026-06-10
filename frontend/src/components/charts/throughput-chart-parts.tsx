@@ -23,6 +23,36 @@ export function throughputYAxisWidth(scale: ThroughputScale): number {
   return 58;
 }
 
+export function getThroughputYAxisProps(
+  scale: ThroughputScale,
+  colors: { text: string },
+  fontSize = 10
+) {
+  const yMax = throughputAxisMax(scale.maxKb);
+  const yTicks = throughputYTicks(scale.maxKb);
+  const axisStroke = { stroke: colors.text, strokeOpacity: 0.45 };
+  const width = throughputYAxisWidth(scale);
+
+  return {
+    domain: [0, yMax] as [number, number],
+    ticks: yTicks,
+    width,
+    orientation: "left" as const,
+    tickMargin: 6,
+    axisLine: axisStroke,
+    tickLine: axisStroke,
+    tick: { fontSize, fill: colors.text },
+    tickFormatter: (value: number) => formatThroughputAxisTick(Number(value), scale),
+    label: {
+      value: scale.unit,
+      angle: -90,
+      position: "insideLeft" as const,
+      offset: 12,
+      style: { fontSize: 9, fill: colors.text, textAnchor: "middle" as const },
+    },
+  };
+}
+
 export function ThroughputYAxis({
   scale,
   colors,
@@ -32,30 +62,7 @@ export function ThroughputYAxis({
   colors: { text: string };
   fontSize?: number;
 }) {
-  const yMax = throughputAxisMax(scale.maxKb);
-  const yTicks = throughputYTicks(scale.maxKb);
-  const axisStroke = { stroke: colors.text, strokeOpacity: 0.45 };
-  const width = throughputYAxisWidth(scale);
-
-  return (
-    <YAxis
-      domain={[0, yMax]}
-      ticks={yTicks}
-      width={width}
-      tickMargin={6}
-      axisLine={axisStroke}
-      tickLine={axisStroke}
-      tick={{ fontSize, fill: colors.text }}
-      tickFormatter={(value) => formatThroughputAxisTick(Number(value), scale)}
-      label={{
-        value: scale.unit,
-        angle: -90,
-        position: "insideLeft",
-        offset: 12,
-        style: { fontSize: 9, fill: colors.text, textAnchor: "middle" },
-      }}
-    />
-  );
+  return <YAxis {...getThroughputYAxisProps(scale, colors, fontSize)} />;
 }
 
 export function ThroughputTooltipContent({

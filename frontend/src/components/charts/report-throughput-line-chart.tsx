@@ -7,11 +7,12 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
+  YAxis,
 } from "recharts";
 import { ChartLegendStrip, throughputLegendItems } from "@/components/charts/chart-legend";
 import {
   ThroughputTooltipContent,
-  ThroughputYAxis,
+  getThroughputYAxisProps,
 } from "@/components/charts/throughput-chart-parts";
 import {
   formatReportTimeseriesLabel,
@@ -60,7 +61,7 @@ export function ReportThroughputLineChart({
               minTickGap={24}
               interval="preserveStartEnd"
             />
-            <ThroughputYAxis scale={scale} colors={colors} fontSize={11} />
+            <YAxis {...getThroughputYAxisProps(scale, colors, 11)} />
             <Tooltip
               labelFormatter={(value) => formatReportTimeseriesTooltip(String(value))}
               content={
