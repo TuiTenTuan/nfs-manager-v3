@@ -16,7 +16,7 @@
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: timescale/timescaledb:latest-pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-nfsmanager}
@@ -61,6 +61,8 @@ services:
       NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:8081/api/v3}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in deploy/.env}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?set JWT_REFRESH_SECRET in deploy/.env}
+      METRICS_COLLECT_INTERVAL: ${METRICS_COLLECT_INTERVAL:-1500ms}
+      METRICS_RETENTION_DAYS: ${METRICS_RETENTION_DAYS:-30}
       APP_PORT: ${APP_PORT:-3001}
     ports:
       - "${APP_PORT:-3001}:${APP_PORT:-3001}"

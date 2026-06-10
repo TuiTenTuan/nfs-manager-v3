@@ -37,11 +37,10 @@ RUN chmod +x /entrypoint.sh && \
 ENV NFS_PROVIDER=linux \
     MANAGED_EXPORTS_PATH=/etc/exports.d/nfs-manager.exports \
     NFS_ROOT_ALLOWLIST=/srv,/data,/export,/mnt \
-    NFS_PORT=2049 \
-    API_PORT=8081 \
-    APP_PORT=3001 \
+    API_PORT=8080 \
+    APP_PORT=3000 \
     APP_ENV=production
 
 WORKDIR /
-EXPOSE 3001 8081 2049
+EXPOSE 3000 8080 2049 111
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]

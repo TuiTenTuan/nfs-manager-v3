@@ -221,6 +221,7 @@ docker run -d \
   -p 3000:3000 \
   -p 8080:8080 \
   -p 2049:2049 \
+  -p 111:111 \
   -v nfs-share:/srv \
   -e DATABASE_HOST=nfs-manager-postgres \
   -e DATABASE_PORT=5432 \
@@ -238,7 +239,6 @@ docker run -d \
   -e CORS_ORIGIN=http://localhost:3000 \
   -e NEXT_PUBLIC_API_BASE=http://localhost:8080/api/v3 \
   -e NFS_SERVER_HOST=localhost \
-  -e NFS_PORT=2049 \
   -e NFS_ROOT_ALLOWLIST=/srv,/data,/export,/mnt \
   nfs-manager-v3:latest
 ```
@@ -250,6 +250,7 @@ docker run -d \
 | `-p 3000:3000`              | Next.js UI (`APP_PORT`)                                                     |
 | `-p 8080:8080`              | Go API (`API_PORT`)                                                         |
 | `-p 2049:2049`              | NFS server (`NFS_PORT`)                                                     |
+| `-p 111:111`                | NFS server (`rpcbind`)                                                      |
 | `-v …/deploy/srv:/srv`      | Bind-mount export paths for testing (same as compose)                       |
 | `--network nfs-manager-net` | Lets `DATABASE_HOST=nfs-manager-postgres` resolve to the Postgres container |
 
@@ -304,7 +305,6 @@ The stack reads configuration from three places:
 | `JWT_REFRESH_TTL`      | Optional     | `168h`                               | Refresh-token lifetime                                               | `deploy/.env` (`env_file`), `config.go`                                                           |
 | `CORS_ORIGIN`          | Optional     | `http://localhost:3000`              | Allowed frontend origin for CORS                                     | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
 | `NFS_SERVER_HOST`      | Optional     | `localhost`                          | Hostname shown in health checks and mount hints                      | `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                                    |
-| `NFS_PORT`             | Optional     | `2049`                               | NFS server port (`rpc.nfsd`)                                         | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`, `config.go` |
 | `NFS_ROOT_ALLOWLIST`   | Optional     | `/srv,/data,/export,/mnt`            | Comma-separated allowed export path roots                            | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
 | `MANAGED_EXPORTS_PATH` | Optional     | `/etc/exports.d/nfs-manager.exports` | Managed exports file inside the container                            | Dockerfile `ENV`, `docker-compose.yml` `environment`, `deploy/.env`, `config.go`                  |
 | `NEXT_PUBLIC_API_BASE` | Optional     | `http://localhost:8080/api/v3`       | API base URL for the browser (written to `public/env.js` at runtime) | `docker-compose.yml` `environment`, `deploy/.env`, `entrypoint.sh`                                |

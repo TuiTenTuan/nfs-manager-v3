@@ -19,8 +19,8 @@ Browser → Next.js (3000) → REST /api/v3 → Gin API (8080) → PostgreSQL
 | `shares` | CRUD, form/raw modes, per-share validate/apply |
 | `exports` | Global raw file, validate, apply, sync-os |
 | `nfs` | `Provider` interface — `LinuxProvider`, `MockProvider` |
-| `monitor` | Realtime metrics, DB samples |
-| `reports` | day/week/month/year rollups from `metrics_samples` |
+| `monitor` | Background metrics collector, live cache for API |
+| `reports` | day/week/month/year rollups from `metrics` hypertable |
 | `audit` | Apply, sync, raw edit, user admin events |
 
 ## Config modes
@@ -51,7 +51,7 @@ Selected when `NFS_PROVIDER=mock` or OS is not Linux (unless overridden).
 
 ## Data retention
 
-`metrics_samples` pruned after 30 days (background job in API process).
+`metrics` TimescaleDB hypertable; background collector every `METRICS_COLLECT_INTERVAL` (default 1.5s). Rows older than `METRICS_RETENTION_DAYS` (default 30) deleted on startup and every 6h.
 
 ## Frontend
 

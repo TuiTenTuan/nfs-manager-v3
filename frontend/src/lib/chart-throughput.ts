@@ -66,3 +66,38 @@ export function formatThroughputPartsFromBytes(
 ): { value: string; unit: ThroughputUnit } {
   return formatSpeedParts(bytesPerSec, fractionDigits);
 }
+
+export type ReportPeriod = "day" | "week" | "month" | "year";
+
+export function formatReportTimeseriesLabel(
+  iso: string,
+  period: ReportPeriod
+): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  if (period === "day") {
+    return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  }
+  if (period === "week") {
+    return d.toLocaleString(undefined, {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+  if (period === "month") {
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+export function formatReportTimeseriesTooltip(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

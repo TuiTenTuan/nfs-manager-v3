@@ -78,12 +78,11 @@ func main() {
 	fsSvc := filesystem.New(cfg.NFSRootAllowlist)
 	configSvc := configuration.New(pool, auditSvc, groupSvc, shareSvc, tmplSvc, exportSvc)
 
-	go func() {
-		ticker := time.NewTicker(6 * time.Hour)
-		for range ticker.C {
-			monitor.PruneOldSamples(ctx, pool, 30)
-		}
-	}()
+	bgCtx, bgCancel := context.WithCancel(ctx)
+	defer bgCancel()
+
+	go monitor.NewCollector(monSvc, cfg.MetricsCollectInterval).Run(bgCtx)
+	go monitor.RunPruneLoop(bgCtx, pool, cfg.MetricsRetentionDays)
 
 	r := router.Setup(&router.Services{
 		Config: cfg, Pool: pool, Provider: provider,
@@ -106,6 +105,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	fmt.Println("shutting down...")
+	bgCancel()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)

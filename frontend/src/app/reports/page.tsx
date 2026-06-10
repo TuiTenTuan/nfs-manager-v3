@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { ChartLegendStrip, throughputLegendItems } from "@/components/charts/chart-legend";
+import { ReportThroughputLineChart } from "@/components/charts/report-throughput-line-chart";
 import {
   ThroughputTooltipContent,
   ThroughputYAxis,
   useThroughputScale,
 } from "@/components/charts/throughput-chart-parts";
 import { api } from "@/lib/api";
-import { formatDecimal, formatInteger, formatOpsPerSec } from "@/lib/format";
+import { formatDecimal, formatInteger, formatOpsPerSec, formatSpeed } from "@/lib/format";
 import { formatThroughputPartsFromBytes } from "@/lib/chart-throughput";
 import { useChartColors } from "@/lib/chart-theme";
 import { PageHeader } from "@/components/layout/page-header";
@@ -34,21 +35,39 @@ type Point = {
   sample_count: number;
 };
 
+type TimeseriesPoint = {
+  recorded_at: string;
+  avg_bytes_read_per_sec: number;
+  avg_bytes_write_per_sec: number;
+  sample_count: number;
+};
+
 const periods = ["day", "week", "month", "year"] as const;
 
 export default function ReportsPage() {
   const colors = useChartColors();
   const [period, setPeriod] = useState<(typeof periods)[number]>("day");
   const [points, setPoints] = useState<Point[] | null>(null);
+  const [timeseries, setTimeseries] = useState<TimeseriesPoint[] | null>(null);
 
   useEffect(() => {
     let active = true;
-    api<{ points: Point[] }>(`/reports?period=${period}`)
-      .then((r) => {
-        if (active) setPoints(r.points);
+    setPoints(null);
+    setTimeseries(null);
+    Promise.all([
+      api<{ points: Point[] }>(`/reports?period=${period}`),
+      api<{ points: TimeseriesPoint[] }>(`/reports/timeseries?period=${period}`),
+    ])
+      .then(([summary, series]) => {
+        if (!active) return;
+        setPoints(summary.points);
+        setTimeseries(series.points);
       })
       .catch(() => {
-        if (active) setPoints([]);
+        if (active) {
+          setPoints([]);
+          setTimeseries([]);
+        }
       });
     return () => {
       active = false;
@@ -67,6 +86,17 @@ export default function ReportsPage() {
     }));
 
   const chartScale = useThroughputScale(chartData);
+
+  const timeseriesChartData = (timeseries ?? [])
+    .filter((p) => p.sample_count > 0)
+    .map((p) => ({
+      recorded_at: p.recorded_at,
+      read: Math.round(p.avg_bytes_read_per_sec / 1024),
+      write: Math.round(p.avg_bytes_write_per_sec / 1024),
+    }));
+
+  const timeseriesScale = useThroughputScale(timeseriesChartData);
+  const hasTimeseries = timeseriesChartData.length > 0;
 
   return (
     <div>
@@ -139,6 +169,23 @@ export default function ReportsPage() {
 
           <div className="rounded-lg border mb-6">
             <div className="px-4 py-3 border-b">
+              <h2 className="text-sm font-semibold">Throughput over time</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Global read and write rates for the selected period</p>
+            </div>
+            {hasTimeseries ? (
+              <ReportThroughputLineChart
+                data={timeseriesChartData}
+                colors={colors}
+                scale={timeseriesScale}
+                period={period}
+              />
+            ) : (
+              <p className="px-4 py-8 text-sm text-muted-foreground">No time-bucketed samples for this period.</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border mb-6">
+            <div className="px-4 py-3 border-b">
               <h2 className="text-sm font-semibold">Throughput by share</h2>
             </div>
             <div className="flex h-72 flex-col p-4 pt-3">
@@ -186,10 +233,10 @@ export default function ReportsPage() {
                   <TableRow key={i}>
                     <TableCell>{p.share_id != null ? formatInteger(p.share_id) : "Global"}</TableCell>
                     <TableCell className="font-mono text-xs">
-                      {formatInteger(p.avg_bytes_read_per_sec / 1024)} KB
+                      {formatSpeed(p.avg_bytes_read_per_sec)}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
-                      {formatInteger(p.avg_bytes_write_per_sec / 1024)} KB
+                      {formatSpeed(p.avg_bytes_write_per_sec)}
                     </TableCell>
                     <TableCell className="font-mono text-xs">{formatDecimal(p.avg_ops_per_sec, 1)}</TableCell>
                     <TableCell className="font-mono text-xs">{formatInteger(p.max_active_connections)}</TableCell>

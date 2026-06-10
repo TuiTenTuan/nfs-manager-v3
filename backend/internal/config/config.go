@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,7 +40,9 @@ type Config struct {
 	NFSPort            string
 	NFSRootAllowlist   []string
 	ManagedExportsPath string
-	CORSOrigin         string
+	CORSOrigin             string
+	MetricsCollectInterval time.Duration
+	MetricsRetentionDays   int
 }
 
 func Load() (*Config, error) {
@@ -47,6 +50,8 @@ func Load() (*Config, error) {
 
 	accessTTL, _ := time.ParseDuration(getEnv("JWT_ACCESS_TTL", "15m"))
 	refreshTTL, _ := time.ParseDuration(getEnv("JWT_REFRESH_TTL", "168h"))
+	metricsInterval, _ := time.ParseDuration(getEnv("METRICS_COLLECT_INTERVAL", "1500ms"))
+	metricsRetention, _ := strconv.Atoi(getEnv("METRICS_RETENTION_DAYS", "30"))
 
 	provider := getEnv("NFS_PROVIDER", "")
 	if provider == "" {
@@ -91,7 +96,9 @@ func Load() (*Config, error) {
 		NFSPort:            getEnv("NFS_PORT", "2049"),
 		NFSRootAllowlist:   allowlist,
 		ManagedExportsPath: getEnv("MANAGED_EXPORTS_PATH", "/etc/exports.d/nfs-manager.exports"),
-		CORSOrigin:         getEnv("CORS_ORIGIN", "http://localhost:3000"),
+		CORSOrigin:             getEnv("CORS_ORIGIN", "http://localhost:3000"),
+		MetricsCollectInterval: metricsInterval,
+		MetricsRetentionDays:   metricsRetention,
 	}, nil
 }
 
