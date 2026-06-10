@@ -30,6 +30,9 @@
     --radius-sm: 0.375rem;
     --radius-md: 0.5rem;
     --radius-lg: 0.75rem;
+    --page-padding-x: 1rem;
+    --page-padding-top: 1rem;
+    --page-padding-bottom: 1rem;
     --chart-read: 217 91% 50%;
     --chart-write: 160 84% 39%;
     --chart-ops: 240 4% 46%;
@@ -74,7 +77,25 @@
   }
 }
 
+@media (min-width: 768px) {
+  :root {
+    --page-padding-x: 1.5rem;
+    --page-padding-top: 1.5rem;
+    --page-padding-bottom: 1rem;
+  }
+}
+
 @layer components {
+  .page-scroll {
+    padding-bottom: max(var(--page-padding-bottom), env(safe-area-inset-bottom, 0px));
+  }
+
+  .page-content {
+    @apply mx-auto flex w-full max-w-7xl flex-col;
+    padding-inline: var(--page-padding-x);
+    padding-top: var(--page-padding-top);
+  }
+
   .page-stack {
     @apply flex flex-col gap-6;
   }

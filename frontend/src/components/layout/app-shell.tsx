@@ -242,10 +242,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           )}
 
-          <main className="scrollbar-themed flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
-            <div className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col p-4 md:p-6">
-              {children}
-            </div>
+          <main className="page-scroll scrollbar-themed flex min-h-0 w-full flex-1 flex-col overflow-y-auto">
+            <div className="page-content">{children}</div>
           </main>
         </div>
       </div>
